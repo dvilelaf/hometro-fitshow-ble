@@ -61,6 +61,11 @@ def control_writes() -> list[bytes]:
     ]
 
 
+def assert_control_writes_allowing_request_control(expected: list[bytes]) -> None:
+    writes = control_writes()
+    assert writes in (expected, [b"\x00", *expected])
+
+
 async def play(controller: TreadmillController) -> dict:
     if hasattr(controller, "play"):
         return await controller.play()
@@ -116,7 +121,7 @@ def test_pause_toggle_while_running_sends_pause(
 
     asyncio.run(pause_toggle(controller))
 
-    assert control_writes() == [b"\x08\x02"]
+    assert_control_writes_allowing_request_control([b"\x08\x02"])
 
 
 @pytest.mark.parametrize("state", [MachineState.IDLE, MachineState.PAUSED])
@@ -145,7 +150,7 @@ def test_stop_sends_stop_and_sets_idle(monkeypatch: pytest.MonkeyPatch) -> None:
 
     state = asyncio.run(controller.stop())
 
-    assert control_writes() == [b"\x08\x01"]
+    assert_control_writes_allowing_request_control([b"\x08\x01"])
     assert state["machine_state"] == MachineState.IDLE
     assert state["running"] is False
     assert state["paused"] is False

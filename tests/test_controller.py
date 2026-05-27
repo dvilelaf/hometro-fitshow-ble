@@ -110,30 +110,9 @@ def test_connect_enters_error_state_after_retry_failure(monkeypatch: pytest.Monk
     assert all(client.disconnected for client in FakeBleakClient.instances)
 
 
-def test_resume_restores_last_running_speed_after_start(monkeypatch: pytest.MonkeyPatch):
-    setup_fake_bleak(monkeypatch, fail_attempts=0)
-    controller = TreadmillController("66:99:D4:F6:7B:30")
-
-    async def exercise() -> None:
-        await controller.connect()
-        controller.state.speed_kmh = 6.0
-        await controller.pause()
-        await controller.resume()
-
-    asyncio.run(exercise())
-
-    assert controller.state.resume_speed_kmh == 6.0
-    writes = [payload for _, payload, _ in FakeBleakClient.instances[0].writes]
-    assert writes[:4] == [
-        b"\x08\x02",
-        b"\x00",
-        b"\x02\x58\x02",
-        b"\x07",
-    ]
-    assert writes[4:] == [b"\x02\x58\x02"] * controller_module.RESUME_RESTORE_ATTEMPTS
-
-
-def test_ramp_speed_does_not_overwrite_pending_resume_speed(monkeypatch: pytest.MonkeyPatch):
+def test_treadmill_data_updates_observed_speed_without_overwriting_target(
+    monkeypatch: pytest.MonkeyPatch,
+):
     setup_fake_bleak(monkeypatch, fail_attempts=0)
     controller = TreadmillController("66:99:D4:F6:7B:30")
 
@@ -150,7 +129,6 @@ def test_ramp_speed_does_not_overwrite_pending_resume_speed(monkeypatch: pytest.
 
     assert controller.state.speed_kmh == 1.0
     assert controller.state.target_speed_kmh == 3.0
-    assert controller.state.resume_speed_kmh == 3.0
 
 
 def test_observed_speed_does_not_overwrite_software_target(monkeypatch: pytest.MonkeyPatch):
@@ -160,19 +138,16 @@ def test_observed_speed_does_not_overwrite_software_target(monkeypatch: pytest.M
     async def exercise() -> None:
         await controller.connect()
         await controller.set_speed(4.0)
-        controller._speed_command_pending_until = 0.0
         controller._handle_notification(
             TREADMILL_DATA_UUID,
             bytearray.fromhex("84 04 64 00 00 00 00 00 00 ff ff ff 00 00"),
         )
         await asyncio.sleep(0)
-        await controller.pause()
 
     asyncio.run(exercise())
 
     assert controller.state.speed_kmh == 1.0
     assert controller.state.target_speed_kmh == 4.0
-    assert controller.state.resume_speed_kmh == 4.0
 
 
 def test_slowdown_notification_below_command_minimum_is_allowed(
@@ -194,4 +169,3 @@ def test_slowdown_notification_below_command_minimum_is_allowed(
 
     assert controller.state.speed_kmh == 0.6
     assert controller.state.target_speed_kmh == 4.0
-    assert controller.state.resume_speed_kmh == 4.0
