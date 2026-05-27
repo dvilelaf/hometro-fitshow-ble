@@ -50,7 +50,11 @@ def create_app(address: str, *, timeout: float = 15.0) -> FastAPI:
 
     @app.post("/api/control/start")
     async def start(request: SpeedRequest) -> dict:
-        return await _call(lambda: controller.start(request.speed_kmh))
+        return await _call(lambda: controller.play(request.speed_kmh))
+
+    @app.post("/api/control/play")
+    async def play() -> dict:
+        return await _call(controller.play)
 
     @app.post("/api/control/stop")
     async def stop() -> dict:
@@ -60,9 +64,13 @@ def create_app(address: str, *, timeout: float = 15.0) -> FastAPI:
     async def pause() -> dict:
         return await _call(controller.pause)
 
+    @app.post("/api/control/pause-toggle")
+    async def pause_toggle() -> dict:
+        return await _call(controller.pause_toggle)
+
     @app.post("/api/control/resume")
     async def resume() -> dict:
-        return await _call(controller.resume)
+        return await _call(controller.play)
 
     @app.post("/api/control/speed")
     async def speed(request: SpeedRequest) -> dict:
