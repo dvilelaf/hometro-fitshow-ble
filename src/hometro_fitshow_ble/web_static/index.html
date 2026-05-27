@@ -22,25 +22,36 @@
       <section class="dashboard">
         <div class="primary-metric">
           <p class="label">Current speed</p>
-          <strong><span id="speed">0.0</span></strong>
-          <span>km/h</span>
+          <div class="metric-value">
+            <strong><span id="speed">0.0</span></strong>
+            <span>km/h</span>
+          </div>
+          <div class="target-chip">
+            Target <span id="target">-</span> km/h
+          </div>
         </div>
 
         <div class="metric-grid">
           <div>
             <p class="label">Distance</p>
-            <strong><span id="distanceKm">0.000</span></strong>
-            <span>km</span>
+            <div class="metric-value">
+              <strong><span id="distanceKm">0.000</span></strong>
+              <span>km</span>
+            </div>
           </div>
           <div>
             <p class="label">Calories</p>
-            <strong><span id="calories">-</span></strong>
-            <span>kcal</span>
+            <div class="metric-value">
+              <strong><span id="calories">-</span></strong>
+              <span>kcal</span>
+            </div>
           </div>
           <div>
             <p class="label">Time</p>
-            <strong id="elapsed">00:00</strong>
-            <span>min</span>
+            <div class="metric-value">
+              <strong id="elapsed">00:00</strong>
+              <span>min</span>
+            </div>
           </div>
         </div>
 
