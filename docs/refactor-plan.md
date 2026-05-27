@@ -172,7 +172,7 @@ Tests:
 - [x] `pytest`
 - [x] `node --check src/hometro_fitshow_ble/web_static/app.js`
 - [x] Confirm no headless Chrome/CDP processes are alive. No Chrome/CDP control process found during audit.
-- [~] Start server. A server process is running from this worktree, but it must be restarted after the latest commits.
+- [x] Start server. Restarted from `refactor/integration` after the latest commits.
 - [ ] Reload browser with cache bypass. Not done in this audit.
 - [ ] Real treadmill test: press `4`, wait 5s, confirm no movement. Not done in this audit.
 - [ ] Press Start, wait at least 5s, confirm speed reaches `4`. Not done in this audit.
@@ -197,7 +197,7 @@ Verification performed:
 - [x] `ruff check .` passes.
 - [x] `node --check src/hometro_fitshow_ble/web_static/app.js` passes.
 - [x] No Chrome/CDP control process found.
-- [~] Server process is running from `refactor/integration`, but must be restarted after the latest commits.
+- [x] Server process is running from `refactor/integration` after restart.
 - [x] Full test suite is green: `34 passed`.
 - [ ] Browser/UI behavior is not verified.
 
