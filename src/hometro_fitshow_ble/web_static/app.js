@@ -1,6 +1,5 @@
 const stateEls = {
   speed: document.querySelector("#speed"),
-  target: document.querySelector("#target"),
   distanceKm: document.querySelector("#distanceKm"),
   calories: document.querySelector("#calories"),
   elapsed: document.querySelector("#elapsed"),
@@ -67,10 +66,6 @@ function renderState(state) {
     setConnectionMessage();
   }
   stateEls.speed.textContent = Number(state.speed_kmh || 0).toFixed(1);
-  stateEls.target.textContent =
-    state.target_speed_kmh === null || state.target_speed_kmh === undefined
-      ? "-"
-      : Number(state.target_speed_kmh).toFixed(1);
   stateEls.distanceKm.textContent = (Number(state.distance_m || 0) / 1000).toFixed(3);
   stateEls.calories.textContent =
     state.calories_kcal === null || state.calories_kcal === undefined

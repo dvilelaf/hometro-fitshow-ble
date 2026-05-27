@@ -95,81 +95,58 @@ h1 {
   border-radius: 8px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
   display: grid;
-  gap: 12px;
-  grid-template-columns: 260px 1fr;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 14px;
 }
 
-.primary-metric {
-  align-content: center;
-  background:
-    linear-gradient(145deg, rgba(0, 216, 167, 0.16), rgba(0, 216, 167, 0.02)),
-    var(--panel);
-  border: 1px solid rgba(0, 216, 167, 0.32);
-  border-radius: 8px;
-  display: grid;
-  min-height: 156px;
-  padding: 18px;
-  position: relative;
-}
-
-.primary-metric strong {
-  color: var(--accent);
-  font-size: 54px;
-  font-variant-numeric: tabular-nums;
-  line-height: 0.95;
-  text-shadow: 0 0 28px var(--glow);
-}
-
-.primary-metric span,
-.metric-grid span {
-  color: var(--muted);
-}
-
-.target-chip {
-  background: rgba(8, 13, 18, 0.72);
-  border: 1px solid rgba(0, 216, 167, 0.24);
-  border-radius: 6px;
-  bottom: 14px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-  padding: 7px 9px;
-  position: absolute;
-  right: 14px;
-}
-
-.target-chip span {
-  color: var(--ink);
-}
-
 .metric-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(128px, 1fr));
-  gap: 10px;
+  display: contents;
 }
 
+.primary-metric,
 .metric-grid > div {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
-  min-height: 84px;
-  padding: 12px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 148px;
+  padding: 16px;
 }
 
+.primary-metric strong,
 .metric-grid strong {
+  align-self: end;
+  color: var(--ink);
   display: block;
-  font-size: 25px;
+  font-size: 38px;
   font-variant-numeric: tabular-nums;
-  line-height: 1;
-  margin-top: 9px;
+  line-height: 0.95;
   overflow-wrap: anywhere;
 }
 
-.metric-grid span {
+.primary-metric strong {
+  font-size: 44px;
+}
+
+.primary-metric > span,
+.metric-grid > div > span {
+  color: var(--muted);
   display: block;
-  font-size: 12px;
-  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 8px;
+}
+
+.primary-metric strong span,
+.metric-grid strong span {
+  color: inherit;
+  display: inline;
+  font: inherit;
+  line-height: inherit;
+  margin: 0;
 }
 
 .control-panel {
@@ -276,12 +253,7 @@ button:disabled {
 
 @media (max-width: 940px) {
   .dashboard {
-    grid-template-columns: 1fr;
-  }
-
-  .metric-grid {
-    grid-column: 1;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -302,9 +274,8 @@ button:disabled {
     text-align: left;
   }
 
-  .metric-grid,
+  .dashboard,
   .buttons {
     grid-template-columns: 1fr;
   }
-
 }
