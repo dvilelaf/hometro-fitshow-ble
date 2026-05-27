@@ -92,11 +92,24 @@ function cancelSpeed() {
   speedDebounce = null;
 }
 
-function action(fn) {
+async function flushSpeed() {
+  if (!speedDebounce) {
+    return;
+  }
+  cancelSpeed();
+  await setSpeed(els.speedInput.value);
+}
+
+function action(fn, speedMode = "cancel") {
   return async () => {
-    cancelSpeed();
     message();
     try {
+      const mode = typeof speedMode === "function" ? speedMode() : speedMode;
+      if (mode === "flush") {
+        await flushSpeed();
+      } else {
+        cancelSpeed();
+      }
       await fn();
     } catch (error) {
       showError(error);
@@ -105,6 +118,7 @@ function action(fn) {
 }
 
 function setSpeed(speed) {
+  cancelSpeed();
   return post("/api/control/speed", { speed_kmh: setSpeedInput(speed) });
 }
 
@@ -120,8 +134,11 @@ function setSpeedSoon(speed) {
 els.connectionButton.addEventListener("click", action(() =>
   post(state?.connected ? "/api/disconnect" : "/api/connect")
 ));
-els.startButton.addEventListener("click", action(() => post("/api/control/play")));
-els.pauseButton.addEventListener("click", action(() => post("/api/control/pause-toggle")));
+els.startButton.addEventListener("click", action(() => post("/api/control/play"), "flush"));
+els.pauseButton.addEventListener("click", action(
+  () => post("/api/control/pause-toggle"),
+  () => state?.running || state?.machine_state === "starting" ? "cancel" : "flush",
+));
 els.stopButton.addEventListener("click", action(() => post("/api/control/stop")));
 els.speedInput.addEventListener("input", () => setSpeedSoon(els.speedInput.value));
 
@@ -141,7 +158,10 @@ document.addEventListener("keydown", (event) => {
 
   if (event.code === "Space" || event.key === " " || event.key === "Spacebar") {
     event.preventDefault();
-    action(() => post(state?.paused ? "/api/control/pause-toggle" : "/api/control/play"))();
+    action(
+      () => post(state?.paused ? "/api/control/pause-toggle" : "/api/control/play"),
+      () => state?.running || state?.machine_state === "starting" ? "cancel" : "flush",
+    )();
     return;
   }
 
