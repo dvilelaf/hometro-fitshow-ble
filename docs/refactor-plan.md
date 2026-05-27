@@ -132,53 +132,74 @@ Tests:
 
 ## Checklist: before editing
 
-- [ ] Create a clean branch from `7ae9769`.
-- [ ] Keep current dirty diff only as reference.
-- [ ] Stop any Chrome headless/CDP processes.
-- [ ] Confirm only one user browser tab will control the treadmill.
-- [ ] Confirm treadmill is stopped: `speed_kmh=0.0`.
-- [ ] Do not touch `styles.css`.
-- [ ] Do not change UI layout or visual styling.
+- [x] Create a clean branch from `7ae9769`. Branch is `refactor/integration`.
+- [~] Keep current dirty diff only as reference. Current worktree is dirty again; production files have uncommitted changes.
+- [x] Stop any Chrome headless/CDP processes. Audit found no Chrome/CDP control process, only a GitKraken crashpad helper.
+- [ ] Confirm only one user browser tab will control the treadmill. Not verified in this audit.
+- [ ] Confirm treadmill is stopped: `speed_kmh=0.0`. Not verified in this audit.
+- [ ] Do not touch `styles.css`. Not satisfied: `styles.css` changed in the integration history.
+- [ ] Do not change UI layout or visual styling. Not satisfied: `index.html` and `styles.css` changed in the integration history.
 
 ## Checklist: tests first
 
-- [ ] `set_speed` while idle updates `target_speed_kmh`.
-- [ ] `set_speed` while idle sends no BLE speed write.
-- [ ] `play` with target `4.0` sends request-control, speed `4.0`, start.
-- [ ] `pause_toggle` while running sends `08 02`.
-- [ ] `pause_toggle` while paused calls play.
-- [ ] `stop` sends `08 01` and sets idle.
-- [ ] incoming FitShow idle after pause is accepted as idle.
-- [ ] frontend number key `4` calls speed endpoint and never start endpoint.
-- [ ] frontend Space calls play or pause-toggle without reading button text.
-- [ ] SSE render does not fight local DOM state because there is no local DOM state.
+- [x] `set_speed` while idle updates `target_speed_kmh`. Covered by `tests/test_control_contract.py`.
+- [x] `set_speed` while idle sends no BLE speed write. Covered by `tests/test_control_contract.py`.
+- [x] `play` with target `4.0` sends request-control, speed `4.0`, start. Covered by `tests/test_control_contract.py`.
+- [x] `pause_toggle` while running sends `08 02`. Covered by `tests/test_control_contract.py`.
+- [x] `pause_toggle` while paused calls play. Covered by `tests/test_control_contract.py`.
+- [x] `stop` sends `08 01` and sets idle. Covered by `tests/test_control_contract.py`.
+- [x] incoming FitShow idle after pause is accepted as idle. Covered by `tests/test_control_contract.py`.
+- [ ] frontend number key `4` calls speed endpoint and never start endpoint. No direct test found.
+- [~] frontend Space calls play or pause-toggle without reading button text. Test exists, but current worktree has `app.js` deleted, so frontend tests fail before proving it.
+- [~] SSE render does not fight local DOM state because there is no local DOM state. Intended by frontend contract, but current worktree has `app.js` deleted.
 
 ## Checklist: implementation
 
-- [ ] Rewrite `controller.py` around one state model.
-- [ ] Keep BLE connection logic small and explicit.
-- [ ] Keep telemetry parsing in parser modules.
-- [ ] Make `set_speed` target-only unless treadmill is running/starting.
-- [ ] Replace resume with play using backend target speed.
-- [ ] Simplify `web.py` endpoints.
-- [ ] Rewrite `app.js` as a thin renderer/action dispatcher.
-- [ ] Keep `index.html` structure unchanged.
-- [ ] Change only the script cache-buster in `index.html`.
-- [ ] Do not edit `styles.css`.
+- [~] Rewrite `controller.py` around one state model. Mostly done, but `running` and `paused` still remain as derived snapshot fields.
+- [x] Keep BLE connection logic small and explicit.
+- [x] Keep telemetry parsing in parser modules. Parsers remain separate; state application is now in `models.py`.
+- [x] Make `set_speed` target-only unless treadmill is running/starting.
+- [x] Replace resume with play using backend target speed. Current dirty `web.py` removes the compatibility route; previous committed integration still had `/resume`.
+- [~] Simplify `web.py` endpoints. Current dirty `web.py` removes compatibility routes, but this is uncommitted.
+- [ ] Rewrite `app.js` as a thin renderer/action dispatcher. Current worktree has `src/hometro_fitshow_ble/web_static/app.js` deleted.
+- [ ] Keep `index.html` structure unchanged. Not satisfied: dashboard markup changed.
+- [ ] Change only the script cache-buster in `index.html`. Not satisfied: markup changed too.
+- [ ] Do not edit `styles.css`. Not satisfied: visual CSS changed.
 
 ## Checklist: verification
 
-- [ ] `ruff check .`
-- [ ] `pytest`
-- [ ] `node --check src/hometro_fitshow_ble/web_static/app.js`
-- [ ] Confirm no headless Chrome/CDP processes are alive.
-- [ ] Start server.
-- [ ] Reload browser with cache bypass.
-- [ ] Real treadmill test: press `4`, wait 5s, confirm no movement.
-- [ ] Press Start, wait at least 5s, confirm speed reaches `4`.
-- [ ] Press Pause, wait at least 5s, confirm belt stops or enters idle.
-- [ ] Press Space, wait at least 5s, confirm treadmill starts at target speed.
-- [ ] Press Stop, wait at least 5s, confirm `idle` and `speed_kmh=0.0`.
+- [x] `ruff check .`
+- [ ] `pytest`. Fails in current worktree because frontend contract cannot read deleted `app.js`.
+- [ ] `node --check src/hometro_fitshow_ble/web_static/app.js`. Not runnable in current worktree because `app.js` is deleted.
+- [x] Confirm no headless Chrome/CDP processes are alive. No Chrome/CDP control process found during audit.
+- [ ] Start server. Not done in this audit.
+- [ ] Reload browser with cache bypass. Not done in this audit.
+- [ ] Real treadmill test: press `4`, wait 5s, confirm no movement. Not done in this audit.
+- [ ] Press Start, wait at least 5s, confirm speed reaches `4`. Not done in this audit.
+- [ ] Press Pause, wait at least 5s, confirm belt stops or enters idle. Not done in this audit.
+- [ ] Press Space, wait at least 5s, confirm treadmill starts at target speed. Not done in this audit.
+- [ ] Press Stop, wait at least 5s, confirm `idle` and `speed_kmh=0.0`. Not done in this audit.
+
+## Audit: 2026-05-27
+
+Current branch: `refactor/integration`.
+
+Current blockers:
+
+- [ ] Worktree is dirty in production/test files: `controller.py`, `models.py`, `web.py`, `web_static/app.js`, and `tests/test_control_contract.py`.
+- [ ] `web_static/app.js` is deleted in the current worktree.
+- [ ] `pytest -q` fails: frontend contract tests cannot read `src/hometro_fitshow_ble/web_static/app.js`.
+- [ ] `node --check src/hometro_fitshow_ble/web_static/app.js` cannot verify the frontend while the file is deleted.
+- [ ] `styles.css` and `index.html` were changed despite the plan saying not to touch visual/layout files.
+- [ ] Real treadmill verification has not been run from this audited state.
+
+Verification performed:
+
+- [x] `ruff check .` passes.
+- [x] No Chrome/CDP control process found.
+- [x] No `hometro-ble web` or `uvicorn` server process found.
+- [ ] Full test suite is not green.
+- [ ] Browser/UI behavior is not verified.
 
 ## Target size
 
