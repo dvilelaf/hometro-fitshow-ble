@@ -67,9 +67,7 @@ def assert_control_writes_allowing_request_control(expected: list[bytes]) -> Non
 
 
 async def play(controller: TreadmillController) -> dict:
-    if hasattr(controller, "play"):
-        return await controller.play()
-    return await controller.start()
+    return await controller.play()
 
 
 async def pause_toggle(controller: TreadmillController) -> dict:
@@ -78,10 +76,7 @@ async def pause_toggle(controller: TreadmillController) -> dict:
 
 
 def set_machine_state(controller: TreadmillController, state: MachineState) -> None:
-    if hasattr(controller, "_set_machine_state"):
-        controller._set_machine_state(state)
-    else:
-        controller.state.control_state = state.value
+    controller.state.set_machine(state)
 
 
 def test_set_speed_while_idle_updates_target_without_ble_speed_write(
@@ -159,9 +154,10 @@ def test_stop_sends_stop_and_sets_idle(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_fitshow_idle_after_pause_is_accepted_as_idle(monkeypatch: pytest.MonkeyPatch) -> None:
     setup_contract_bleak(monkeypatch)
     controller = TreadmillController("66:99:D4:F6:7B:30")
+    controller.state.set_machine(MachineState.RUNNING)
 
     async def exercise() -> dict:
-        await controller.pause()
+        await controller.pause_toggle()
         controller._handle_notification(FITSHOW_NOTIFY_UUID, bytearray.fromhex("02 51 00 51 03"))
         await asyncio.sleep(0)
         return controller.state.snapshot()

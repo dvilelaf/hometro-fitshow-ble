@@ -24,9 +24,14 @@ class SpeedRequest(BaseModel):
 def create_app(address: str, *, timeout: float = 15.0) -> FastAPI:
     controller = TreadmillController(address, timeout=timeout)
     app = FastAPI(title="HomeTro FitShow BLE")
-    app.state.controller = controller
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    def post(path, operation) -> None:
+        async def endpoint() -> dict:
+            return await _call(operation)
+
+        app.add_api_route(path, endpoint, methods=["POST"])
 
     @app.get("/")
     async def index() -> FileResponse:
@@ -36,41 +41,11 @@ def create_app(address: str, *, timeout: float = 15.0) -> FastAPI:
     async def state() -> dict:
         return controller.state.snapshot()
 
-    @app.post("/api/connect")
-    async def connect() -> dict:
-        return await _call(controller.connect)
-
-    @app.post("/api/disconnect")
-    async def disconnect() -> dict:
-        return await _call(lambda: controller.disconnect(stop_first=True))
-
-    @app.post("/api/control/request")
-    async def request_control() -> dict:
-        return await _call(controller.request_control)
-
-    @app.post("/api/control/start")
-    async def start(request: SpeedRequest) -> dict:
-        return await _call(lambda: controller.play(request.speed_kmh))
-
-    @app.post("/api/control/play")
-    async def play() -> dict:
-        return await _call(controller.play)
-
-    @app.post("/api/control/stop")
-    async def stop() -> dict:
-        return await _call(controller.stop)
-
-    @app.post("/api/control/pause")
-    async def pause() -> dict:
-        return await _call(controller.pause)
-
-    @app.post("/api/control/pause-toggle")
-    async def pause_toggle() -> dict:
-        return await _call(controller.pause_toggle)
-
-    @app.post("/api/control/resume")
-    async def resume() -> dict:
-        return await _call(controller.play)
+    post("/api/connect", controller.connect)
+    post("/api/disconnect", lambda: controller.disconnect(stop_first=True))
+    post("/api/control/play", controller.play)
+    post("/api/control/stop", controller.stop)
+    post("/api/control/pause-toggle", controller.pause_toggle)
 
     @app.post("/api/control/speed")
     async def speed(request: SpeedRequest) -> dict:

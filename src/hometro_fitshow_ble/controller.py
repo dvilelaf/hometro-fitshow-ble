@@ -6,13 +6,11 @@ from typing import Any
 
 from bleak import BleakClient
 
-from .fitshow_oem import FITSHOW_NOTIFY_UUID, parse_fitshow_frame
+from .fitshow_oem import FITSHOW_NOTIFY_UUID
 from .ftms import (
     FITNESS_MACHINE_CONTROL_POINT_UUID,
     FITNESS_MACHINE_STATUS_UUID,
     TREADMILL_DATA_UUID,
-    parse_control_point_response,
-    parse_treadmill_data,
     pause_command,
     request_control_command,
     set_target_speed_command,
@@ -22,6 +20,13 @@ from .ftms import (
 from .models import ConnectionState, MachineState, TreadmillState, utc_now
 from .protocol import hex_from_bytes
 from .system_ble import is_system_connected, release_system_connection
+
+NOTIFY_UUIDS = (
+    FITNESS_MACHINE_CONTROL_POINT_UUID,
+    FITNESS_MACHINE_STATUS_UUID,
+    TREADMILL_DATA_UUID,
+    FITSHOW_NOTIFY_UUID,
+)
 
 
 class TreadmillController:
@@ -44,7 +49,7 @@ class TreadmillController:
             if self.connected:
                 return self.state.snapshot()
 
-            self._set_connection_state(ConnectionState.CONNECTING)
+            self.state.set_connection(ConnectionState.CONNECTING)
             self.state.last_error = None
             self.state.last_event_ts = utc_now()
             await self._publish()
@@ -59,7 +64,7 @@ class TreadmillController:
                 except Exception as retry_exc:
                     await self._disconnect_client_unlocked()
                     if attempt:
-                        self._set_connection_state(ConnectionState.ERROR)
+                        self.state.set_connection(ConnectionState.ERROR)
                         self.state.controlled = False
                         self.state.last_error = str(retry_exc)
                         self.state.last_event_ts = utc_now()
@@ -69,7 +74,7 @@ class TreadmillController:
                     await asyncio.sleep(0.75)
                     continue
 
-                self._set_connection_state(ConnectionState.CONNECTED)
+                self.state.set_connection(ConnectionState.CONNECTED)
                 break
 
             await self._publish()
@@ -77,7 +82,7 @@ class TreadmillController:
 
     async def disconnect(self, *, stop_first: bool = True) -> dict[str, Any]:
         async with self._operation_lock, self._lock:
-            self._set_connection_state(ConnectionState.DISCONNECTING)
+            self.state.set_connection(ConnectionState.DISCONNECTING)
             self.state.last_event_ts = utc_now()
             await self._publish()
 
@@ -87,8 +92,8 @@ class TreadmillController:
                     await asyncio.sleep(0.25)
 
             await self._disconnect_client_unlocked()
-            self._set_connection_state(ConnectionState.DISCONNECTED)
-            self._set_machine_state(MachineState.UNKNOWN)
+            self.state.set_connection(ConnectionState.DISCONNECTED)
+            self.state.set_machine(MachineState.UNKNOWN)
             self.state.controlled = False
             self.state.last_event_ts = utc_now()
             await self._publish()
@@ -115,12 +120,7 @@ class TreadmillController:
         self.state.last_error = None
         self.state.last_event_ts = utc_now()
 
-        for char_uuid in (
-            FITNESS_MACHINE_CONTROL_POINT_UUID,
-            FITNESS_MACHINE_STATUS_UUID,
-            TREADMILL_DATA_UUID,
-            FITSHOW_NOTIFY_UUID,
-        ):
+        for char_uuid in NOTIFY_UUIDS:
             with contextlib.suppress(Exception):
                 await self._client.start_notify(char_uuid, self._handle_notification)
                 self._notify_chars.append(char_uuid)
@@ -139,19 +139,15 @@ class TreadmillController:
         async with self._operation_lock:
             return await self._send_and_set_state(stop_command(), MachineState.IDLE)
 
-    async def pause(self) -> dict[str, Any]:
-        async with self._operation_lock:
-            return await self._pause_unlocked()
-
     async def pause_toggle(self) -> dict[str, Any]:
         async with self._operation_lock:
             if self.state.machine_state in {MachineState.RUNNING, MachineState.STARTING}:
-                return await self._pause_unlocked()
+                return await self._send_and_set_state(pause_command(), MachineState.PAUSED)
             return await self._play_unlocked()
 
     async def set_speed(self, speed_kmh: float) -> dict[str, Any]:
         async with self._operation_lock:
-            speed_kmh = self._validate_speed(speed_kmh)
+            speed_kmh = self.state.validate_speed(speed_kmh)
             self.state.target_speed_kmh = speed_kmh
 
             if self.state.machine_state in {MachineState.RUNNING, MachineState.STARTING}:
@@ -163,21 +159,18 @@ class TreadmillController:
 
     async def _play_unlocked(self, speed_kmh: float | None = None) -> dict[str, Any]:
         if speed_kmh is not None:
-            self.state.target_speed_kmh = self._validate_speed(speed_kmh)
+            self.state.target_speed_kmh = self.state.validate_speed(speed_kmh)
         await self.connect()
         await self.request_control()
         await self._send_control(set_target_speed_command(self.state.target_speed_kmh))
         await self._send_control(start_or_resume_command())
-        self._set_machine_state(MachineState.STARTING)
+        self.state.set_machine(MachineState.STARTING)
         await self._publish()
         return self.state.snapshot()
 
-    async def _pause_unlocked(self) -> dict[str, Any]:
-        return await self._send_and_set_state(pause_command(), MachineState.PAUSED)
-
     async def _send_and_set_state(self, payload: bytes, state: MachineState) -> dict[str, Any]:
         await self._send_control(payload)
-        self._set_machine_state(state)
+        self.state.set_machine(state)
         await self._publish()
         return self.state.snapshot()
 
@@ -198,7 +191,7 @@ class TreadmillController:
     async def _send_control_unlocked(self, payload: bytes) -> None:
         if not self._client or not self._client.is_connected:
             message = "treadmill is not connected"
-            self._set_connection_state(ConnectionState.ERROR)
+            self.state.set_connection(ConnectionState.ERROR)
             self.state.last_error = message
             self.state.last_event_ts = utc_now()
             await self._publish()
@@ -213,64 +206,8 @@ class TreadmillController:
 
     def _handle_notification(self, sender: Any, data: bytearray) -> None:
         sender_uuid = getattr(sender, "uuid", str(sender))
-        raw = bytes(data)
-        self.state.last_event_ts = utc_now()
-        self.state.last_raw_hex = hex_from_bytes(raw)
-
-        if sender_uuid == FITNESS_MACHINE_CONTROL_POINT_UUID:
-            response = parse_control_point_response(raw)
-            if response:
-                self.state.last_response = f"{response.request_name}:{response.result_name}"
-        elif sender_uuid == FITNESS_MACHINE_STATUS_UUID:
-            self.state.ftms_status_hex = hex_from_bytes(raw)
-            if raw.startswith(b"\x02"):
-                self._set_machine_state(MachineState.IDLE)
-        elif sender_uuid == TREADMILL_DATA_UUID:
-            treadmill_data = parse_treadmill_data(raw)
-            if treadmill_data:
-                if treadmill_data.instantaneous_speed_kmh is not None:
-                    self.state.speed_kmh = treadmill_data.instantaneous_speed_kmh
-                    if treadmill_data.instantaneous_speed_kmh > 0:
-                        self._set_machine_state(MachineState.RUNNING)
-                if treadmill_data.total_distance_m is not None:
-                    self.state.distance_m = treadmill_data.total_distance_m
-                if treadmill_data.total_energy_kcal is not None:
-                    self.state.calories_kcal = treadmill_data.total_energy_kcal
-                if treadmill_data.elapsed_time_s is not None:
-                    self.state.elapsed_s = treadmill_data.elapsed_time_s
-        elif sender_uuid == FITSHOW_NOTIFY_UUID:
-            frame = parse_fitshow_frame(raw)
-            if frame:
-                self.state.fitshow_state = frame.state_name
-                self._apply_fitshow_machine_state(frame.state_name)
-                if frame.speed_kmh is not None:
-                    self.state.speed_kmh = frame.speed_kmh
-                if frame.distance_m is not None:
-                    self.state.distance_m = frame.distance_m
-                if frame.elapsed_s is not None:
-                    self.state.elapsed_s = frame.elapsed_s
-
+        self.state.apply_notification(sender_uuid, bytes(data))
         asyncio.create_task(self._publish())
-
-    def _set_connection_state(self, state: ConnectionState) -> None:
-        self.state.connection_state = state
-        self.state.connected = state == ConnectionState.CONNECTED
-
-    def _set_machine_state(self, state: MachineState) -> None:
-        self.state.machine_state = state
-        self.state.running = state in {MachineState.STARTING, MachineState.RUNNING}
-        self.state.paused = state == MachineState.PAUSED
-
-    def _apply_fitshow_machine_state(self, state_name: str) -> None:
-        state_map = {
-            "idle": MachineState.IDLE,
-            "countdown": MachineState.STARTING,
-            "running": MachineState.RUNNING,
-            "stopping": MachineState.STOPPING,
-        }
-        machine_state = state_map.get(state_name)
-        if machine_state is not None:
-            self._set_machine_state(machine_state)
 
     async def _publish(self) -> None:
         snapshot = self.state.snapshot()
@@ -280,10 +217,3 @@ class TreadmillController:
                     queue.get_nowait()
             with contextlib.suppress(asyncio.QueueFull):
                 queue.put_nowait(snapshot)
-
-    def _validate_speed(self, speed_kmh: float) -> float:
-        min_speed = float(self.state.supported["min_speed_kmh"])
-        max_speed = float(self.state.supported["max_speed_kmh"])
-        if not min_speed <= speed_kmh <= max_speed:
-            raise ValueError(f"speed must be between {min_speed:.1f} and {max_speed:.1f} km/h")
-        return round(speed_kmh, 1)

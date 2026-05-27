@@ -5,6 +5,16 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
+from .fitshow_oem import FITSHOW_NOTIFY_UUID, parse_fitshow_frame
+from .ftms import (
+    FITNESS_MACHINE_CONTROL_POINT_UUID,
+    FITNESS_MACHINE_STATUS_UUID,
+    TREADMILL_DATA_UUID,
+    parse_control_point_response,
+    parse_treadmill_data,
+)
+from .protocol import hex_from_bytes
+
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds")
@@ -65,6 +75,71 @@ class TreadmillState:
 
     def snapshot(self) -> dict[str, Any]:
         return asdict(self)
+
+    def validate_speed(self, speed_kmh: float) -> float:
+        min_speed = float(self.supported["min_speed_kmh"])
+        max_speed = float(self.supported["max_speed_kmh"])
+        if not min_speed <= speed_kmh <= max_speed:
+            raise ValueError(f"speed must be between {min_speed:.1f} and {max_speed:.1f} km/h")
+        return round(speed_kmh, 1)
+
+    def set_connection(self, state: ConnectionState) -> None:
+        self.connection_state = state
+        self.connected = state == ConnectionState.CONNECTED
+
+    def set_machine(self, state: MachineState) -> None:
+        self.machine_state = state
+        self.running = state in {MachineState.STARTING, MachineState.RUNNING}
+        self.paused = state == MachineState.PAUSED
+
+    def apply_treadmill_data(self, data: Any) -> None:
+        if data.instantaneous_speed_kmh is not None:
+            self.speed_kmh = data.instantaneous_speed_kmh
+            if data.instantaneous_speed_kmh > 0:
+                self.set_machine(MachineState.RUNNING)
+        if data.total_distance_m is not None:
+            self.distance_m = data.total_distance_m
+        if data.total_energy_kcal is not None:
+            self.calories_kcal = data.total_energy_kcal
+        if data.elapsed_time_s is not None:
+            self.elapsed_s = data.elapsed_time_s
+
+    def apply_fitshow_frame(self, frame: Any) -> None:
+        self.fitshow_state = frame.state_name
+        if machine_state := FITSHOW_STATE_MAP.get(frame.state_name):
+            self.set_machine(machine_state)
+        if frame.speed_kmh is not None:
+            self.speed_kmh = frame.speed_kmh
+        if frame.distance_m is not None:
+            self.distance_m = frame.distance_m
+        if frame.elapsed_s is not None:
+            self.elapsed_s = frame.elapsed_s
+
+    def apply_notification(self, sender_uuid: str, raw: bytes) -> None:
+        self.last_event_ts = utc_now()
+        self.last_raw_hex = hex_from_bytes(raw)
+
+        if sender_uuid == FITNESS_MACHINE_CONTROL_POINT_UUID:
+            if response := parse_control_point_response(raw):
+                self.last_response = f"{response.request_name}:{response.result_name}"
+        elif sender_uuid == FITNESS_MACHINE_STATUS_UUID:
+            self.ftms_status_hex = hex_from_bytes(raw)
+            if raw.startswith(b"\x02"):
+                self.set_machine(MachineState.IDLE)
+        elif sender_uuid == TREADMILL_DATA_UUID:
+            if treadmill_data := parse_treadmill_data(raw):
+                self.apply_treadmill_data(treadmill_data)
+        elif sender_uuid == FITSHOW_NOTIFY_UUID:
+            if frame := parse_fitshow_frame(raw):
+                self.apply_fitshow_frame(frame)
+
+
+FITSHOW_STATE_MAP = {
+    "idle": MachineState.IDLE,
+    "countdown": MachineState.STARTING,
+    "running": MachineState.RUNNING,
+    "stopping": MachineState.STOPPING,
+}
 
 
 @dataclass(frozen=True)
