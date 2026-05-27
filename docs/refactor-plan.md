@@ -148,7 +148,7 @@ Tests:
 - [x] `pause_toggle` while running sends `08 02`. Covered by `tests/test_control_contract.py`.
 - [x] `pause_toggle` while paused calls play. Covered by `tests/test_control_contract.py`.
 - [x] `stop` sends `08 01` and sets idle. Covered by `tests/test_control_contract.py`.
-- [x] incoming FitShow idle after pause is accepted as idle. Covered by `tests/test_control_contract.py`.
+- [x] incoming FitShow/FTMS idle after software pause keeps resume available. Covered by `tests/test_control_contract.py`.
 - [x] frontend number key `4` calls speed endpoint and never start endpoint. Covered by `tests/test_frontend_contract.py`.
 - [x] frontend Space calls play or pause-toggle without reading button text. Covered by `tests/test_frontend_contract.py`.
 - [x] SSE render does not fight local DOM state because there is no local DOM state. Frontend only stores latest backend snapshot plus debounce timer.

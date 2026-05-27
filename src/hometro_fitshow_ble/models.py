@@ -92,6 +92,11 @@ class TreadmillState:
         self.running = state in {MachineState.STARTING, MachineState.RUNNING}
         self.paused = state == MachineState.PAUSED
 
+    def set_observed_machine(self, state: MachineState) -> None:
+        if self.machine_state == MachineState.PAUSED and state == MachineState.IDLE:
+            return
+        self.set_machine(state)
+
     def apply_treadmill_data(self, data: Any) -> None:
         if data.instantaneous_speed_kmh is not None:
             self.speed_kmh = data.instantaneous_speed_kmh
@@ -107,7 +112,7 @@ class TreadmillState:
     def apply_fitshow_frame(self, frame: Any) -> None:
         self.fitshow_state = frame.state_name
         if machine_state := FITSHOW_STATE_MAP.get(frame.state_name):
-            self.set_machine(machine_state)
+            self.set_observed_machine(machine_state)
         if frame.speed_kmh is not None:
             self.speed_kmh = frame.speed_kmh
         if frame.distance_m is not None:
@@ -125,7 +130,7 @@ class TreadmillState:
         elif sender_uuid == FITNESS_MACHINE_STATUS_UUID:
             self.ftms_status_hex = hex_from_bytes(raw)
             if raw.startswith(b"\x02"):
-                self.set_machine(MachineState.IDLE)
+                self.set_observed_machine(MachineState.IDLE)
         elif sender_uuid == TREADMILL_DATA_UUID:
             if treadmill_data := parse_treadmill_data(raw):
                 self.apply_treadmill_data(treadmill_data)
