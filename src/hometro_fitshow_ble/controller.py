@@ -204,7 +204,6 @@ class TreadmillController:
 
     async def stop(self) -> dict[str, Any]:
         async with self._operation_lock:
-            await self.request_control()
             await self._send_control(stop_command())
             self._set_machine_state(MachineState.IDLE)
             await self._publish()
@@ -247,7 +246,6 @@ class TreadmillController:
         return self.state.snapshot()
 
     async def _pause_unlocked(self) -> dict[str, Any]:
-        await self.request_control()
         await self._send_control(pause_command())
         self._set_machine_state(MachineState.PAUSED)
         await self._publish()
