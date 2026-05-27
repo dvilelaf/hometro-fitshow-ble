@@ -186,7 +186,7 @@ Current branch: `refactor/integration`.
 
 Current blockers:
 
-- [ ] Worktree is dirty in production/test files: `controller.py`, `models.py`, `web.py`, `web_static/app.js`, and `tests/test_control_contract.py`.
+- [ ] Worktree is dirty in production/test files: `controller.py`, `models.py`, `web.py`, `web_static/app.js`, `tests/test_control_contract.py`, and `tests/test_frontend_contract.py`.
 - [ ] `pytest -q` fails: `test_space_key_uses_pause_toggle_not_play` raises `ValueError` because the test searches for `return;` in the Space handler.
 - [x] `node --check src/hometro_fitshow_ble/web_static/app.js` passes.
 - [ ] `styles.css` and `index.html` were changed despite the plan saying not to touch visual/layout files.
