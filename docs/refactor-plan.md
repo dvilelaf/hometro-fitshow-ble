@@ -150,8 +150,8 @@ Tests:
 - [x] `stop` sends `08 01` and sets idle. Covered by `tests/test_control_contract.py`.
 - [x] incoming FitShow idle after pause is accepted as idle. Covered by `tests/test_control_contract.py`.
 - [ ] frontend number key `4` calls speed endpoint and never start endpoint. No direct test found.
-- [~] frontend Space calls play or pause-toggle without reading button text. Test exists, but current worktree has `app.js` deleted, so frontend tests fail before proving it.
-- [~] SSE render does not fight local DOM state because there is no local DOM state. Intended by frontend contract, but current worktree has `app.js` deleted.
+- [~] frontend Space calls play or pause-toggle without reading button text. Test exists, but currently fails because it parses JS with a brittle `return;` search.
+- [~] SSE render does not fight local DOM state because there is no local DOM state. Intended by frontend contract, but frontend is dirty and not committed.
 
 ## Checklist: implementation
 
@@ -161,7 +161,7 @@ Tests:
 - [x] Make `set_speed` target-only unless treadmill is running/starting.
 - [x] Replace resume with play using backend target speed. Current dirty `web.py` removes the compatibility route; previous committed integration still had `/resume`.
 - [~] Simplify `web.py` endpoints. Current dirty `web.py` removes compatibility routes, but this is uncommitted.
-- [ ] Rewrite `app.js` as a thin renderer/action dispatcher. Current worktree has `src/hometro_fitshow_ble/web_static/app.js` deleted.
+- [~] Rewrite `app.js` as a thin renderer/action dispatcher. Present and small, but dirty and uncommitted.
 - [ ] Keep `index.html` structure unchanged. Not satisfied: dashboard markup changed.
 - [ ] Change only the script cache-buster in `index.html`. Not satisfied: markup changed too.
 - [ ] Do not edit `styles.css`. Not satisfied: visual CSS changed.
@@ -169,8 +169,8 @@ Tests:
 ## Checklist: verification
 
 - [x] `ruff check .`
-- [ ] `pytest`. Fails in current worktree because frontend contract cannot read deleted `app.js`.
-- [ ] `node --check src/hometro_fitshow_ble/web_static/app.js`. Not runnable in current worktree because `app.js` is deleted.
+- [ ] `pytest`. Fails in current worktree: `test_space_key_uses_pause_toggle_not_play` raises `ValueError` while parsing JS.
+- [x] `node --check src/hometro_fitshow_ble/web_static/app.js`
 - [x] Confirm no headless Chrome/CDP processes are alive. No Chrome/CDP control process found during audit.
 - [ ] Start server. Not done in this audit.
 - [ ] Reload browser with cache bypass. Not done in this audit.
@@ -187,15 +187,15 @@ Current branch: `refactor/integration`.
 Current blockers:
 
 - [ ] Worktree is dirty in production/test files: `controller.py`, `models.py`, `web.py`, `web_static/app.js`, and `tests/test_control_contract.py`.
-- [ ] `web_static/app.js` is deleted in the current worktree.
-- [ ] `pytest -q` fails: frontend contract tests cannot read `src/hometro_fitshow_ble/web_static/app.js`.
-- [ ] `node --check src/hometro_fitshow_ble/web_static/app.js` cannot verify the frontend while the file is deleted.
+- [ ] `pytest -q` fails: `test_space_key_uses_pause_toggle_not_play` raises `ValueError` because the test searches for `return;` in the Space handler.
+- [x] `node --check src/hometro_fitshow_ble/web_static/app.js` passes.
 - [ ] `styles.css` and `index.html` were changed despite the plan saying not to touch visual/layout files.
 - [ ] Real treadmill verification has not been run from this audited state.
 
 Verification performed:
 
 - [x] `ruff check .` passes.
+- [x] `node --check src/hometro_fitshow_ble/web_static/app.js` passes.
 - [x] No Chrome/CDP control process found.
 - [x] No `hometro-ble web` or `uvicorn` server process found.
 - [ ] Full test suite is not green.
