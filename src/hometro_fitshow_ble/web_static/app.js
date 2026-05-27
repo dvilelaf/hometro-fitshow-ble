@@ -159,7 +159,7 @@ document.addEventListener("keydown", (event) => {
   if (event.code === "Space" || event.key === " " || event.key === "Spacebar") {
     event.preventDefault();
     action(
-      () => post(state?.paused ? "/api/control/pause-toggle" : "/api/control/play"),
+      () => post("/api/control/pause-toggle"),
       () => state?.running || state?.machine_state === "starting" ? "cancel" : "flush",
     )();
     return;

@@ -83,3 +83,12 @@ def test_frontend_uses_minimal_play_and_pause_toggle_endpoints() -> None:
     assert '"/api/control/play"' in source
     assert '"/api/control/pause-toggle"' in source
     assert '"/api/control/resume"' not in source
+
+
+def test_space_key_uses_pause_toggle_not_play() -> None:
+    source = app_source()
+    space_index = source.index('event.code === "Space"')
+    block = source[space_index : source.index("return;", space_index)]
+
+    assert '"/api/control/pause-toggle"' in block
+    assert '"/api/control/play"' not in block
