@@ -1,0 +1,7 @@
+# Replace the UUID with the writable command characteristic if each line embeds it.
+# Or pass --char UUID and leave only hex payloads.
+#
+# 0000fff2-0000-1000-8000-00805f9b34fb aa 01 02 ad
+#
+# Plain fallback-char form:
+# aa 01 02 ad

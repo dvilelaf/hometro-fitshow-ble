@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HomeTro BLE Control</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">HomeTro BLE</p>
+          <h1>Treadmill Control</h1>
+        </div>
+        <div class="connection-box">
+          <button id="connectionButton" type="button">Connect</button>
+          <p id="connectionMessage" class="connection-message" aria-live="polite"></p>
+        </div>
+      </header>
+
+      <section class="dashboard">
+        <div class="primary-metric">
+          <p class="label">Current speed</p>
+          <strong><span id="speed">0.0</span></strong>
+          <span>km/h</span>
+          <div class="target-chip">
+            Target <span id="target">-</span> km/h
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <div>
+            <p class="label">Distance</p>
+            <strong><span id="distanceKm">0.000</span></strong>
+            <span>km</span>
+          </div>
+          <div>
+            <p class="label">Calories</p>
+            <strong><span id="calories">-</span></strong>
+            <span>kcal</span>
+          </div>
+          <div>
+            <p class="label">Time</p>
+            <strong id="elapsed">00:00</strong>
+            <span>min</span>
+          </div>
+        </div>
+
+        <div class="control-panel">
+          <div class="buttons">
+            <button id="startButton" type="button" class="primary">Start</button>
+            <button id="pauseButton" type="button">Pause</button>
+            <button id="stopButton" type="button" class="danger">Stop</button>
+          </div>
+          <label for="speedInput">Set speed</label>
+          <div class="speed-row">
+            <div class="speed-scale">
+              <input id="speedInput" type="range" min="1" max="14" step="0.1" value="1" />
+              <div id="speedTicks" class="speed-ticks" aria-hidden="true"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

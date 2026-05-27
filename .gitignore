@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+
+# Local captures can contain device identifiers and workout data.
+captures/*.json
+captures/*.jsonl
+captures/*.ndjson
+captures/*.pcap
+captures/*.pcapng
+!captures/.gitkeep
