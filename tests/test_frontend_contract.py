@@ -93,3 +93,15 @@ def test_space_key_uses_pause_toggle_not_play() -> None:
 
     assert '"/api/control/pause-toggle"' in block
     assert '"/api/control/play"' not in block
+
+
+def test_number_keys_set_speed_without_starting() -> None:
+    source = app_source()
+    set_speed_index = source.index("function setSpeed")
+    set_speed_block = source[set_speed_index : source.index("async function flushSpeed")]
+    digit_index = source.index('/^[0-9]$/.test(event.key)')
+    digit_block = source[digit_index : source.index("}\n}, { capture: true });", digit_index)]
+
+    assert '"/api/control/speed"' in set_speed_block
+    assert "setSpeed(" in digit_block
+    assert '"/api/control/play"' not in digit_block
