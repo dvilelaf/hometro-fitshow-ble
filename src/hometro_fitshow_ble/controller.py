@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from dataclasses import asdict, dataclass, field
-from enum import StrEnum
 from typing import Any
 
 from bleak import BleakClient
@@ -21,62 +19,9 @@ from .ftms import (
     start_or_resume_command,
     stop_command,
 )
-from .models import utc_now
+from .models import ConnectionState, MachineState, TreadmillState, utc_now
 from .protocol import hex_from_bytes
 from .system_ble import is_system_connected, release_system_connection
-
-DEFAULT_MIN_SPEED_KMH = 1.0
-DEFAULT_MAX_SPEED_KMH = 14.0
-
-
-class ConnectionState(StrEnum):
-    DISCONNECTED = "disconnected"
-    CONNECTING = "connecting"
-    CONNECTED = "connected"
-    DISCONNECTING = "disconnecting"
-    ERROR = "error"
-
-
-class MachineState(StrEnum):
-    UNKNOWN = "unknown"
-    IDLE = "idle"
-    STARTING = "starting"
-    RUNNING = "running"
-    PAUSED = "paused"
-    STOPPING = "stopping"
-
-
-@dataclass
-class TreadmillState:
-    address: str
-    connection_state: ConnectionState = ConnectionState.DISCONNECTED
-    machine_state: MachineState = MachineState.UNKNOWN
-    connected: bool = False
-    controlled: bool = False
-    running: bool = False
-    paused: bool = False
-    speed_kmh: float = 0.0
-    target_speed_kmh: float = DEFAULT_MIN_SPEED_KMH
-    distance_m: int = 0
-    calories_kcal: int | None = None
-    elapsed_s: int | None = None
-    ftms_status_hex: str | None = None
-    fitshow_state: str | None = None
-    last_response: str | None = None
-    last_error: str | None = None
-    last_event_ts: str | None = None
-    last_raw_hex: str | None = None
-    supported: dict[str, Any] = field(
-        default_factory=lambda: {
-            "min_speed_kmh": DEFAULT_MIN_SPEED_KMH,
-            "max_speed_kmh": DEFAULT_MAX_SPEED_KMH,
-            "speed_step_kmh": 0.1,
-            "incline": False,
-        }
-    )
-
-    def snapshot(self) -> dict[str, Any]:
-        return asdict(self)
 
 
 class TreadmillController:
@@ -113,25 +58,25 @@ class TreadmillController:
                     await self._connect_once_unlocked()
                 except Exception as retry_exc:
                     await self._disconnect_client_unlocked()
-                    if attempt == 0:
-                        await release_system_connection(self.address)
-                        await asyncio.sleep(0.75)
-                        continue
-                    await self._handle_connect_failure_unlocked(retry_exc)
-                    raise
-                else:
-                    self._set_connection_state(ConnectionState.CONNECTED)
-                    break
+                    if attempt:
+                        self._set_connection_state(ConnectionState.ERROR)
+                        self.state.controlled = False
+                        self.state.last_error = str(retry_exc)
+                        self.state.last_event_ts = utc_now()
+                        await self._publish()
+                        raise
+                    await release_system_connection(self.address)
+                    await asyncio.sleep(0.75)
+                    continue
+
+                self._set_connection_state(ConnectionState.CONNECTED)
+                break
 
             await self._publish()
             return self.state.snapshot()
 
     async def disconnect(self, *, stop_first: bool = True) -> dict[str, Any]:
-        async with self._operation_lock:
-            return await self._disconnect(stop_first=stop_first)
-
-    async def _disconnect(self, *, stop_first: bool) -> dict[str, Any]:
-        async with self._lock:
+        async with self._operation_lock, self._lock:
             self._set_connection_state(ConnectionState.DISCONNECTING)
             self.state.last_event_ts = utc_now()
             await self._publish()
@@ -170,24 +115,15 @@ class TreadmillController:
         self.state.last_error = None
         self.state.last_event_ts = utc_now()
 
-        notify_chars = [
+        for char_uuid in (
             FITNESS_MACHINE_CONTROL_POINT_UUID,
             FITNESS_MACHINE_STATUS_UUID,
             TREADMILL_DATA_UUID,
             FITSHOW_NOTIFY_UUID,
-        ]
-        for char_uuid in notify_chars:
+        ):
             with contextlib.suppress(Exception):
                 await self._client.start_notify(char_uuid, self._handle_notification)
                 self._notify_chars.append(char_uuid)
-
-    async def _handle_connect_failure_unlocked(self, exc: Exception) -> None:
-        self._set_connection_state(ConnectionState.ERROR)
-        self.state.controlled = False
-        self.state.last_error = str(exc)
-        self.state.last_event_ts = utc_now()
-        await self._disconnect_client_unlocked()
-        await self._publish()
 
     async def request_control(self) -> dict[str, Any]:
         await self._send_control(request_control_command())
@@ -195,19 +131,13 @@ class TreadmillController:
         await self._publish()
         return self.state.snapshot()
 
-    async def start(self, speed_kmh: float | None = None) -> dict[str, Any]:
-        return await self.play(speed_kmh)
-
     async def play(self, speed_kmh: float | None = None) -> dict[str, Any]:
         async with self._operation_lock:
             return await self._play_unlocked(speed_kmh)
 
     async def stop(self) -> dict[str, Any]:
         async with self._operation_lock:
-            await self._send_control(stop_command())
-            self._set_machine_state(MachineState.IDLE)
-            await self._publish()
-            return self.state.snapshot()
+            return await self._send_and_set_state(stop_command(), MachineState.IDLE)
 
     async def pause(self) -> dict[str, Any]:
         async with self._operation_lock:
@@ -218,9 +148,6 @@ class TreadmillController:
             if self.state.machine_state in {MachineState.RUNNING, MachineState.STARTING}:
                 return await self._pause_unlocked()
             return await self._play_unlocked()
-
-    async def resume(self) -> dict[str, Any]:
-        return await self.play()
 
     async def set_speed(self, speed_kmh: float) -> dict[str, Any]:
         async with self._operation_lock:
@@ -246,8 +173,11 @@ class TreadmillController:
         return self.state.snapshot()
 
     async def _pause_unlocked(self) -> dict[str, Any]:
-        await self._send_control(pause_command())
-        self._set_machine_state(MachineState.PAUSED)
+        return await self._send_and_set_state(pause_command(), MachineState.PAUSED)
+
+    async def _send_and_set_state(self, payload: bytes, state: MachineState) -> dict[str, Any]:
+        await self._send_control(payload)
+        self._set_machine_state(state)
         await self._publish()
         return self.state.snapshot()
 
@@ -344,17 +274,12 @@ class TreadmillController:
 
     async def _publish(self) -> None:
         snapshot = self.state.snapshot()
-        stale: list[asyncio.Queue[dict[str, Any]]] = []
-        for queue in self._subscribers:
+        for queue in list(self._subscribers):
             if queue.full():
                 with contextlib.suppress(asyncio.QueueEmpty):
                     queue.get_nowait()
-            try:
+            with contextlib.suppress(asyncio.QueueFull):
                 queue.put_nowait(snapshot)
-            except asyncio.QueueFull:
-                stale.append(queue)
-        for queue in stale:
-            self._subscribers.discard(queue)
 
     def _validate_speed(self, speed_kmh: float) -> float:
         min_speed = float(self.state.supported["min_speed_kmh"])
