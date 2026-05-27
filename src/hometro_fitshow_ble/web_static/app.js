@@ -1,81 +1,94 @@
-const stateEls = {
+const els = {
   speed: document.querySelector("#speed"),
+  target: document.querySelector("#target"),
   distanceKm: document.querySelector("#distanceKm"),
   calories: document.querySelector("#calories"),
   elapsed: document.querySelector("#elapsed"),
   connectionButton: document.querySelector("#connectionButton"),
   connectionMessage: document.querySelector("#connectionMessage"),
+  startButton: document.querySelector("#startButton"),
   pauseButton: document.querySelector("#pauseButton"),
+  stopButton: document.querySelector("#stopButton"),
   speedInput: document.querySelector("#speedInput"),
   speedTicks: document.querySelector("#speedTicks"),
 };
 
-let connected = false;
-let connectionBusy = false;
-let connectionState = "disconnected";
+let state = null;
 let speedDebounce = null;
 
-function speedValue() {
-  return Number.parseFloat(stateEls.speedInput.value);
-}
-
-function setSpeedControl(value) {
-  const clamped = Math.min(14, Math.max(1, Number(value)));
-  stateEls.speedInput.value = String(clamped);
+function currentSpeed() {
+  return Number.parseFloat(els.speedInput.value);
 }
 
 function formatElapsed(seconds) {
-  if (seconds === null || seconds === undefined) {
-    return "00:00";
-  }
-  const value = Math.max(0, Number(seconds));
+  const value = Math.max(0, Number(seconds || 0));
   const minutes = Math.floor(value / 60);
   const secs = Math.floor(value % 60);
   return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-function setConnectionMessage(message = "", type = "") {
-  stateEls.connectionMessage.textContent = message;
-  stateEls.connectionMessage.classList.toggle("error", type === "error");
+function setSpeedControl(value) {
+  const speed = Math.min(14, Math.max(1, Number(value || 1)));
+  els.speedInput.value = String(speed);
+  els.speedInput.style.setProperty("--progress", `${((speed - 1) / 13) * 100}%`);
 }
 
-function renderConnectionButton() {
-  if (
-    connectionBusy ||
-    connectionState === "connecting" ||
-    connectionState === "disconnecting"
-  ) {
-    stateEls.connectionButton.disabled = true;
-    stateEls.connectionButton.textContent =
-      connectionState === "disconnecting" ? "Disconnecting..." : "Connecting...";
-    return;
-  }
-  stateEls.connectionButton.disabled = false;
-  stateEls.connectionButton.textContent = connected ? "Disconnect" : "Connect";
-  stateEls.connectionButton.classList.toggle("primary", !connected);
-  stateEls.connectionButton.classList.toggle("danger", connected);
+function setMessage(text = "", type = "") {
+  els.connectionMessage.textContent = text;
+  els.connectionMessage.classList.toggle("error", type === "error");
 }
 
-function renderState(state) {
-  connected = Boolean(state.connected);
-  connectionState = state.connection_state || (connected ? "connected" : "disconnected");
-  renderConnectionButton();
-  if (connectionState === "error" && state.last_error) {
-    setConnectionMessage(state.last_error, "error");
-  } else if (connected) {
-    setConnectionMessage();
+function isBusy(snapshot) {
+  return snapshot?.connection_state === "connecting" || snapshot?.connection_state === "disconnecting";
+}
+
+function isConnected(snapshot) {
+  return Boolean(snapshot?.connected);
+}
+
+function render(snapshot) {
+  state = snapshot;
+
+  const connected = isConnected(state);
+  const busy = isBusy(state);
+  const targetSpeed = Number(state.target_speed_kmh || 1);
+
+  els.speed.textContent = Number(state.speed_kmh || 0).toFixed(1);
+  if (els.target) {
+    els.target.textContent =
+      state.target_speed_kmh === null || state.target_speed_kmh === undefined
+        ? "-"
+        : targetSpeed.toFixed(1);
   }
-  stateEls.speed.textContent = Number(state.speed_kmh || 0).toFixed(1);
-  stateEls.distanceKm.textContent = (Number(state.distance_m || 0) / 1000).toFixed(3);
-  stateEls.calories.textContent =
+  els.distanceKm.textContent = (Number(state.distance_m || 0) / 1000).toFixed(3);
+  els.calories.textContent =
     state.calories_kcal === null || state.calories_kcal === undefined
       ? "-"
       : String(state.calories_kcal);
-  stateEls.elapsed.textContent = formatElapsed(state.elapsed_s);
-  stateEls.pauseButton.textContent = state.paused ? "Resume" : "Pause";
+  els.elapsed.textContent = formatElapsed(state.elapsed_s);
+  setSpeedControl(targetSpeed);
+
+  els.connectionButton.disabled = busy;
+  els.connectionButton.textContent = busy
+    ? connected
+      ? "Disconnecting..."
+      : "Connecting..."
+    : connected
+      ? "Disconnect"
+      : "Connect";
+  els.connectionButton.classList.toggle("primary", !connected);
+  els.connectionButton.classList.toggle("danger", connected);
+
+  els.pauseButton.textContent = state.paused ? "Resume" : "Pause";
+
+  if (state.connection_state === "error" && state.last_error) {
+    setMessage(state.last_error, "error");
+  } else if (connected) {
+    setMessage();
+  }
 }
 
-async function api(path, body = undefined) {
+async function post(path, body = undefined) {
   const response = await fetch(path, {
     method: "POST",
     headers: body ? { "Content-Type": "application/json" } : undefined,
@@ -85,93 +98,113 @@ async function api(path, body = undefined) {
   if (!response.ok) {
     throw new Error(payload.detail || response.statusText);
   }
-  renderState(payload);
+  render(payload);
   return payload;
 }
 
-function bindButton(id, action) {
-  const button = document.querySelector(id);
-  button.addEventListener("click", async () => {
-    const isConnectionButton = button === stateEls.connectionButton;
+function cancelSpeedUpdate() {
+  window.clearTimeout(speedDebounce);
+  speedDebounce = null;
+}
+
+function run(action) {
+  return async () => {
+    cancelSpeedUpdate();
     try {
-      if (isConnectionButton) {
-        connectionBusy = true;
-        connectionState = connected ? "disconnecting" : "connecting";
-        button.disabled = true;
-        button.textContent = connected ? "Disconnecting..." : "Connecting...";
-      }
-      setConnectionMessage();
+      setMessage();
       await action();
     } catch (error) {
       console.error(error);
-      if (isConnectionButton) {
-        connectionState = connected ? "connected" : "error";
-      }
-      setConnectionMessage(error.message || String(error), "error");
-    } finally {
-      if (isConnectionButton) {
-        connectionBusy = false;
-        if (connectionState === "connecting" || connectionState === "disconnecting") {
-          connectionState = connected ? "connected" : "disconnected";
-        }
-        renderConnectionButton();
-      }
+      setMessage(error.message || String(error), "error");
     }
-  });
+  };
 }
 
-function scheduleSpeedUpdate() {
+function connectToggle() {
+  return post(isConnected(state) ? "/api/disconnect" : "/api/connect");
+}
+
+function play() {
+  return post("/api/control/play");
+}
+
+function pauseToggle() {
+  return post("/api/control/pause-toggle");
+}
+
+function stop() {
+  return post("/api/control/stop");
+}
+
+function mainControl() {
+  return state?.paused ? pauseToggle() : play();
+}
+
+function sendSpeed(speed) {
+  setSpeedControl(speed);
+  return post("/api/control/speed", { speed_kmh: currentSpeed() });
+}
+
+function sendSpeedSoon(speed) {
+  setSpeedControl(speed);
   window.clearTimeout(speedDebounce);
-  if (!connected) {
-    return;
-  }
-  speedDebounce = window.setTimeout(async () => {
-    try {
-      await api("/api/control/speed", { speed_kmh: speedValue() });
-    } catch (error) {
+  speedDebounce = window.setTimeout(() => {
+    speedDebounce = null;
+    sendSpeed(currentSpeed()).catch((error) => {
       console.error(error);
-    }
+      setMessage(error.message || String(error), "error");
+    });
   }, 450);
 }
 
-stateEls.speedInput.addEventListener("input", () => {
-  setSpeedControl(stateEls.speedInput.value);
-  scheduleSpeedUpdate();
-});
+els.connectionButton.addEventListener("click", run(connectToggle));
+els.startButton.addEventListener("click", run(play));
+els.pauseButton.addEventListener("click", run(pauseToggle));
+els.stopButton.addEventListener("click", run(stop));
 
-bindButton("#connectionButton", () => api(connected ? "/api/disconnect" : "/api/connect"));
-bindButton("#startButton", () => api("/api/control/start", { speed_kmh: speedValue() }));
-bindButton("#pauseButton", () =>
-  api(stateEls.pauseButton.textContent === "Resume" ? "/api/control/resume" : "/api/control/pause")
-);
-bindButton("#stopButton", () => api("/api/control/stop"));
+els.speedInput.addEventListener("input", () => sendSpeedSoon(els.speedInput.value));
 
 for (let speed = 1; speed <= 14; speed += 1) {
   const tick = document.createElement("button");
   tick.type = "button";
   tick.textContent = String(speed);
   tick.style.left = `${((speed - 1) / 13) * 100}%`;
-  tick.addEventListener("click", () => {
-    setSpeedControl(speed);
-    scheduleSpeedUpdate();
-  });
-  stateEls.speedTicks.appendChild(tick);
+  tick.addEventListener("click", () => sendSpeed(speed).catch((error) => {
+    console.error(error);
+    setMessage(error.message || String(error), "error");
+  }));
+  els.speedTicks.appendChild(tick);
 }
 
 document.addEventListener("keydown", (event) => {
-  if (!/^[0-9]$/.test(event.key)) {
+  if (event.repeat) {
     return;
   }
-  const speed = event.key === "0" ? 10 : Number(event.key);
-  setSpeedControl(speed);
-  scheduleSpeedUpdate();
-});
+
+  if (event.code === "Space" || event.key === " " || event.key === "Spacebar") {
+    event.preventDefault();
+    run(mainControl)();
+    return;
+  }
+
+  if (/^[0-9]$/.test(event.key)) {
+    event.preventDefault();
+    const speed = event.key === "0" ? 10 : Number(event.key);
+    sendSpeed(speed).catch((error) => {
+      console.error(error);
+      setMessage(error.message || String(error), "error");
+    });
+  }
+}, { capture: true });
 
 fetch("/api/state")
   .then((response) => response.json())
-  .then(renderState)
-  .catch((error) => console.error(error));
+  .then(render)
+  .catch((error) => {
+    console.error(error);
+    setMessage(error.message || String(error), "error");
+  });
 
 const events = new EventSource("/api/events");
-events.onmessage = (event) => renderState(JSON.parse(event.data));
+events.onmessage = (event) => render(JSON.parse(event.data));
 events.onerror = (error) => console.error(error);
