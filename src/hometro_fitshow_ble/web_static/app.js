@@ -16,57 +16,45 @@ const els = {
 let state = null;
 let speedDebounce = null;
 
-function currentSpeed() {
-  return Number.parseFloat(els.speedInput.value);
-}
-
-function formatElapsed(seconds) {
-  const value = Math.max(0, Number(seconds || 0));
-  const minutes = Math.floor(value / 60);
-  const secs = Math.floor(value % 60);
-  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-}
-
-function setSpeedControl(value) {
-  const speed = Math.min(14, Math.max(1, Number(value || 1)));
-  els.speedInput.value = String(speed);
-  els.speedInput.style.setProperty("--progress", `${((speed - 1) / 13) * 100}%`);
-}
-
-function setMessage(text = "", type = "") {
+function message(text = "", type = "") {
   els.connectionMessage.textContent = text;
   els.connectionMessage.classList.toggle("error", type === "error");
 }
 
-function isBusy(snapshot) {
-  return snapshot?.connection_state === "connecting" || snapshot?.connection_state === "disconnecting";
+function showError(error) {
+  console.error(error);
+  message(error.message || String(error), "error");
 }
 
-function isConnected(snapshot) {
-  return Boolean(snapshot?.connected);
+function setSpeedInput(value) {
+  const speed = Math.min(14, Math.max(1, Number(value || 1)));
+  els.speedInput.value = String(speed);
+  els.speedInput.style.setProperty("--progress", `${((speed - 1) / 13) * 100}%`);
+  return speed;
+}
+
+function elapsedText(seconds) {
+  const value = Math.max(0, Number(seconds || 0));
+  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
 }
 
 function render(snapshot) {
   state = snapshot;
 
-  const connected = isConnected(state);
-  const busy = isBusy(state);
+  const connected = Boolean(state.connected);
+  const busy = state.connection_state === "connecting" || state.connection_state === "disconnecting";
   const targetSpeed = Number(state.target_speed_kmh || 1);
 
   els.speed.textContent = Number(state.speed_kmh || 0).toFixed(1);
-  if (els.target) {
-    els.target.textContent =
-      state.target_speed_kmh === null || state.target_speed_kmh === undefined
-        ? "-"
-        : targetSpeed.toFixed(1);
-  }
   els.distanceKm.textContent = (Number(state.distance_m || 0) / 1000).toFixed(3);
-  els.calories.textContent =
-    state.calories_kcal === null || state.calories_kcal === undefined
-      ? "-"
-      : String(state.calories_kcal);
-  els.elapsed.textContent = formatElapsed(state.elapsed_s);
-  setSpeedControl(targetSpeed);
+  els.calories.textContent = state.calories_kcal == null ? "-" : String(state.calories_kcal);
+  els.elapsed.textContent = elapsedText(state.elapsed_s);
+  els.pauseButton.textContent = state.paused ? "Resume" : "Pause";
+  setSpeedInput(targetSpeed);
+
+  if (els.target) {
+    els.target.textContent = state.target_speed_kmh == null ? "-" : targetSpeed.toFixed(1);
+  }
 
   els.connectionButton.disabled = busy;
   els.connectionButton.textContent = busy
@@ -79,12 +67,10 @@ function render(snapshot) {
   els.connectionButton.classList.toggle("primary", !connected);
   els.connectionButton.classList.toggle("danger", connected);
 
-  els.pauseButton.textContent = state.paused ? "Resume" : "Pause";
-
   if (state.connection_state === "error" && state.last_error) {
-    setMessage(state.last_error, "error");
+    message(state.last_error, "error");
   } else if (connected) {
-    setMessage();
+    message();
   }
 }
 
@@ -99,80 +85,52 @@ async function post(path, body = undefined) {
     throw new Error(payload.detail || response.statusText);
   }
   render(payload);
-  return payload;
 }
 
-function cancelSpeedUpdate() {
+function cancelSpeed() {
   window.clearTimeout(speedDebounce);
   speedDebounce = null;
 }
 
-function run(action) {
+function action(fn) {
   return async () => {
-    cancelSpeedUpdate();
+    cancelSpeed();
+    message();
     try {
-      setMessage();
-      await action();
+      await fn();
     } catch (error) {
-      console.error(error);
-      setMessage(error.message || String(error), "error");
+      showError(error);
     }
   };
 }
 
-function connectToggle() {
-  return post(isConnected(state) ? "/api/disconnect" : "/api/connect");
+function setSpeed(speed) {
+  return post("/api/control/speed", { speed_kmh: setSpeedInput(speed) });
 }
 
-function play() {
-  return post("/api/control/play");
-}
-
-function pauseToggle() {
-  return post("/api/control/pause-toggle");
-}
-
-function stop() {
-  return post("/api/control/stop");
-}
-
-function mainControl() {
-  return state?.paused ? pauseToggle() : play();
-}
-
-function sendSpeed(speed) {
-  setSpeedControl(speed);
-  return post("/api/control/speed", { speed_kmh: currentSpeed() });
-}
-
-function sendSpeedSoon(speed) {
-  setSpeedControl(speed);
+function setSpeedSoon(speed) {
+  setSpeedInput(speed);
   window.clearTimeout(speedDebounce);
   speedDebounce = window.setTimeout(() => {
     speedDebounce = null;
-    sendSpeed(currentSpeed()).catch((error) => {
-      console.error(error);
-      setMessage(error.message || String(error), "error");
-    });
+    setSpeed(speed).catch(showError);
   }, 450);
 }
 
-els.connectionButton.addEventListener("click", run(connectToggle));
-els.startButton.addEventListener("click", run(play));
-els.pauseButton.addEventListener("click", run(pauseToggle));
-els.stopButton.addEventListener("click", run(stop));
-
-els.speedInput.addEventListener("input", () => sendSpeedSoon(els.speedInput.value));
+els.connectionButton.addEventListener("click", action(() =>
+  post(state?.connected ? "/api/disconnect" : "/api/connect")
+));
+els.startButton.addEventListener("click", action(() => post("/api/control/play")));
+els.pauseButton.addEventListener("click", action(() => post("/api/control/pause-toggle")));
+els.stopButton.addEventListener("click", action(() => post("/api/control/stop")));
+els.speedInput.addEventListener("input", () => setSpeedSoon(els.speedInput.value));
 
 for (let speed = 1; speed <= 14; speed += 1) {
   const tick = document.createElement("button");
   tick.type = "button";
   tick.textContent = String(speed);
   tick.style.left = `${((speed - 1) / 13) * 100}%`;
-  tick.addEventListener("click", () => sendSpeed(speed).catch((error) => {
-    console.error(error);
-    setMessage(error.message || String(error), "error");
-  }));
+  tick.addEventListener("click", () => setSpeed(speed).catch(showError));
   els.speedTicks.appendChild(tick);
 }
 
@@ -183,27 +141,20 @@ document.addEventListener("keydown", (event) => {
 
   if (event.code === "Space" || event.key === " " || event.key === "Spacebar") {
     event.preventDefault();
-    run(mainControl)();
+    action(() => post(state?.paused ? "/api/control/pause-toggle" : "/api/control/play"))();
     return;
   }
 
   if (/^[0-9]$/.test(event.key)) {
     event.preventDefault();
-    const speed = event.key === "0" ? 10 : Number(event.key);
-    sendSpeed(speed).catch((error) => {
-      console.error(error);
-      setMessage(error.message || String(error), "error");
-    });
+    setSpeed(event.key === "0" ? 10 : Number(event.key)).catch(showError);
   }
 }, { capture: true });
 
 fetch("/api/state")
   .then((response) => response.json())
   .then(render)
-  .catch((error) => {
-    console.error(error);
-    setMessage(error.message || String(error), "error");
-  });
+  .catch(showError);
 
 const events = new EventSource("/api/events");
 events.onmessage = (event) => render(JSON.parse(event.data));
