@@ -157,8 +157,10 @@ def test_layout_compaction_preserves_metric_cards() -> None:
 
 
 def test_topbar_is_compact() -> None:
+    html = index_source()
     styles = styles_source()
 
+    assert '<p class="eyebrow">HomeTro BLE</p>' not in html
     assert "font-size: 16px" in styles
     assert ".connection-actions button" in styles
     assert "min-height: 32px" in styles
