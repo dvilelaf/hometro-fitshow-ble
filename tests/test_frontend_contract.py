@@ -152,7 +152,7 @@ def test_layout_compaction_preserves_metric_cards() -> None:
     styles = styles_source()
 
     assert "min-height: 174px" in styles
-    assert "height: 190px" in styles
+    assert "height: 165px" in styles
     assert "padding: 11px" in styles
 
 
