@@ -156,6 +156,15 @@ def test_layout_compaction_preserves_metric_cards() -> None:
     assert "padding: 11px" in styles
 
 
+def test_topbar_is_compact() -> None:
+    styles = styles_source()
+
+    assert "font-size: 16px" in styles
+    assert ".connection-actions button" in styles
+    assert "min-height: 32px" in styles
+    assert "width: 32px" in styles
+
+
 def test_frontend_renders_speed_chart_from_backend_history() -> None:
     source = app_source()
     html = index_source()

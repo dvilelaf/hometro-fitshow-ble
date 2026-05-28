@@ -40,21 +40,21 @@ input {
 .shell {
   width: min(1040px, calc(100vw - 32px));
   margin: 0 auto;
-  padding: 14px 0;
+  padding: 10px 0 14px;
 }
 
 .topbar {
   align-items: center;
   display: flex;
-  gap: 12px;
+  gap: 9px;
   justify-content: space-between;
-  margin-bottom: 9px;
+  margin-bottom: 7px;
 }
 
 .connection-box {
   align-items: flex-end;
   display: grid;
-  gap: 6px;
+  gap: 5px;
   justify-items: end;
   min-width: min(280px, 45vw);
   position: relative;
@@ -62,7 +62,7 @@ input {
 
 .connection-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: flex-end;
 }
 
@@ -70,18 +70,18 @@ input {
   align-items: center;
   display: inline-flex;
   justify-content: center;
-  min-height: 42px;
+  min-height: 32px;
   padding: 0;
   position: relative;
-  width: 42px;
+  width: 32px;
 }
 
 .notification-icon {
   background: currentColor;
   display: block;
-  height: 20px;
+  height: 18px;
   mask: url("/static/icons/bell.svg") center / contain no-repeat;
-  width: 20px;
+  width: 18px;
   -webkit-mask: url("/static/icons/bell.svg") center / contain no-repeat;
 }
 
@@ -190,9 +190,9 @@ input {
 }
 
 h1 {
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1.1;
-  margin: 4px 0 0;
+  margin: 2px 0 0;
 }
 
 .device-list {
@@ -446,6 +446,11 @@ button {
   cursor: pointer;
   min-height: 42px;
   padding: 8px 12px;
+}
+
+.connection-actions button {
+  min-height: 32px;
+  padding: 5px 9px;
 }
 
 button:hover {
