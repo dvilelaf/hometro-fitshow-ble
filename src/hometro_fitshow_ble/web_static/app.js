@@ -152,9 +152,9 @@ function drawSpeedChart(points = []) {
   const bottom = 32;
   const plotWidth = Math.max(1, width - left - right);
   const plotHeight = Math.max(1, height - top - bottom);
-  const rawMaxTime = Math.max(30, ...points.map((point) => Number(point.elapsed_s || 0)));
-  const xStep = timeStep(rawMaxTime);
-  const maxTime = Math.max(xStep, Math.ceil(rawMaxTime / xStep) * xStep);
+  const rawMaxTime = Math.max(1, ...points.map((point) => Number(point.elapsed_s || 0)));
+  const maxTime = rawMaxTime;
+  const xStep = timeStep(maxTime);
   const maxSpeed = Math.max(14, ...points.map((point) => Number(point.speed_kmh || 0)));
   const yMax = Math.ceil(maxSpeed / 2) * 2;
 

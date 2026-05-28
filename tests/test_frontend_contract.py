@@ -159,6 +159,8 @@ def test_frontend_renders_speed_chart_from_backend_history() -> None:
     assert "function drawSpeedChart(" in source
     assert "function drawSmoothPath(" in source
     assert "function timeStep(" in source
+    assert "const maxTime = rawMaxTime" in source
+    assert "Math.ceil(rawMaxTime / xStep)" not in source
     assert "rgba(0, 216, 167, 0.18)" in source
     assert 'ctx.fillText("Speed"' in source
     assert "drawSpeedChart(state.speed_history || [])" in source
