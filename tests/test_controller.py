@@ -180,6 +180,17 @@ def test_speed_history_resets_with_session_metrics():
     assert state.speed_history == [{"elapsed_s": 0.0, "speed_kmh": 0.0}]
 
 
+def test_session_counter_offsets_are_not_exposed_in_snapshot():
+    state = TreadmillState(address="66:99:D4:F6:7B:30")
+    state.elapsed_s = 100
+    state.apply_elapsed(1)
+
+    snapshot = state.snapshot()
+
+    assert snapshot["elapsed_s"] == 101
+    assert "_elapsed_offset_s" not in snapshot
+
+
 def test_slowdown_notification_below_command_minimum_is_allowed(
     monkeypatch: pytest.MonkeyPatch,
 ):

@@ -382,3 +382,31 @@ def test_treadmill_counter_reset_is_ignored_until_next_stop_to_start(
     assert state["distance_m"] == 500
     assert state["elapsed_s"] == 100
     assert state["calories_kcal"] == 25
+
+
+def test_resume_continues_metrics_after_treadmill_counter_reset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setup_contract_bleak(monkeypatch)
+    controller = TreadmillController("66:99:D4:F6:7B:30")
+    controller.state.distance_m = 500
+    controller.state.elapsed_s = 100
+    controller.state.calories_kcal = 25
+    controller.state.record_speed_sample(speed_kmh=0.0)
+    controller.state.set_machine(MachineState.PAUSED)
+
+    async def exercise() -> dict:
+        await controller.primary_action()
+        controller._handle_notification(
+            TREADMILL_DATA_UUID,
+            bytearray.fromhex("84 04 58 02 16 00 00 01 00 ff ff ff 17 00"),
+        )
+        await asyncio.sleep(0)
+        return controller.state.snapshot()
+
+    state = asyncio.run(exercise())
+
+    assert state["distance_m"] == 522
+    assert state["elapsed_s"] == 123
+    assert state["calories_kcal"] == 26
+    assert state["speed_history"][-1] == {"elapsed_s": 123.0, "speed_kmh": 6.0}

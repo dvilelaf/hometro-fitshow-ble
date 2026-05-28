@@ -81,9 +81,14 @@ class TreadmillState:
     last_raw_hex: str | None = None
     supported: dict[str, Any] = field(default_factory=SUPPORTED_DEFAULTS.copy)
     speed_history: list[dict[str, float]] = field(default_factory=list)
+    _distance_offset_m: int = 0
+    _calories_offset_kcal: int = 0
+    _elapsed_offset_s: int = 0
 
     def snapshot(self) -> dict[str, Any]:
         payload = asdict(self)
+        for key in ("_distance_offset_m", "_calories_offset_kcal", "_elapsed_offset_s"):
+            payload.pop(key, None)
         payload["primary_action"] = self.primary_action()
         payload["primary_action_label"] = self.primary_action_label()
         return payload
@@ -123,6 +128,9 @@ class TreadmillState:
         self.distance_m = 0
         self.calories_kcal = 0
         self.elapsed_s = 0
+        self._distance_offset_m = 0
+        self._calories_offset_kcal = 0
+        self._elapsed_offset_s = 0
         self.speed_history.clear()
         self.record_speed_sample(elapsed_s=0, speed_kmh=0.0)
 
@@ -144,17 +152,38 @@ class TreadmillState:
             self.speed_history.append(point)
         del self.speed_history[:-MAX_SPEED_HISTORY_POINTS]
 
+    def session_counter(
+        self,
+        raw_value: int,
+        current_value: int | None,
+        offset: int,
+    ) -> tuple[int, int]:
+        value = raw_value + offset
+        if current_value is not None and value < current_value:
+            offset = current_value
+            value = raw_value + offset
+        return value, offset
+
     def apply_distance(self, distance_m: int) -> None:
-        if distance_m >= self.distance_m:
-            self.distance_m = distance_m
+        self.distance_m, self._distance_offset_m = self.session_counter(
+            distance_m,
+            self.distance_m,
+            self._distance_offset_m,
+        )
 
     def apply_calories(self, calories_kcal: int) -> None:
-        if self.calories_kcal is None or calories_kcal >= self.calories_kcal:
-            self.calories_kcal = calories_kcal
+        self.calories_kcal, self._calories_offset_kcal = self.session_counter(
+            calories_kcal,
+            self.calories_kcal,
+            self._calories_offset_kcal,
+        )
 
     def apply_elapsed(self, elapsed_s: int) -> None:
-        if self.elapsed_s is None or elapsed_s >= self.elapsed_s:
-            self.elapsed_s = elapsed_s
+        self.elapsed_s, self._elapsed_offset_s = self.session_counter(
+            elapsed_s,
+            self.elapsed_s,
+            self._elapsed_offset_s,
+        )
 
     def apply_treadmill_data(self, data: Any) -> None:
         has_speed = data.instantaneous_speed_kmh is not None
