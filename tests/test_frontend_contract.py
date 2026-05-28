@@ -167,8 +167,12 @@ def test_frontend_renders_speed_chart_from_backend_history() -> None:
     assert "drawSpeedChart(state.speed_history || [])" in source
     assert '<div class="speed-chart">' in html
     assert '<section class="speed-chart-panel">' not in html
+    chart_block = styles[styles.index(".speed-chart {") : styles.index(".speed-chart canvas")]
     assert ".speed-chart {" in styles
     assert "grid-column: 1 / -1" in styles
+    assert "background:" not in chart_block
+    assert "border:" not in chart_block
+    assert "padding:" not in chart_block
     assert "speed-chart-header" not in styles
 
 
