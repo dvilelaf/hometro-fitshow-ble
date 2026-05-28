@@ -1,6 +1,10 @@
-const els = Object.fromEntries("speed target distanceKm calories elapsed scanButton connectionButton connectionMessage devicePanel deviceList startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
+const els = Object.fromEntries("speed target distanceKm calories elapsed scanButton connectionButton connectionMessage notificationButton notificationBadge notificationPanel notificationList clearNotificationsButton notificationToast devicePanel deviceList startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
 
 let speedDebounce = null;
+let notificationId = 0;
+let notificationTimer = null;
+let lastBackendError = "";
+const notifications = [];
 const clampSpeed = (value) => Math.min(14, Math.max(1, Number(value || 1)));
 
 function message(text = "", error = false) {
@@ -12,6 +16,9 @@ function userMessage(error) {
   const text = error?.message || String(error || "");
   const lower = text.toLowerCase();
 
+  if (!text || text === "[object Event]") {
+    return "Cannot reach the local app. Make sure just run is still running.";
+  }
   if (
     lower.includes("networkerror") ||
     lower.includes("failed to fetch") ||
@@ -30,7 +37,60 @@ function userMessage(error) {
 
 function report(error) {
   console.error(error);
-  message(userMessage(error), true);
+  notify(userMessage(error), true);
+}
+
+function renderNotifications() {
+  els.notificationBadge.hidden = notifications.length === 0;
+  els.notificationBadge.textContent = String(notifications.length);
+  els.notificationList.replaceChildren();
+
+  if (!notifications.length) {
+    const empty = document.createElement("div");
+    empty.className = "notification-empty";
+    empty.textContent = "No notifications";
+    els.notificationList.appendChild(empty);
+    return;
+  }
+
+  for (const item of notifications) {
+    const row = document.createElement("div");
+    row.className = `notification-item ${item.error ? "error" : ""}`;
+    const text = document.createElement("span");
+    text.textContent = item.text;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Clear";
+    remove.addEventListener("click", () => {
+      const index = notifications.findIndex((notification) => notification.id === item.id);
+      if (index >= 0) notifications.splice(index, 1);
+      renderNotifications();
+    });
+    row.append(text, remove);
+    els.notificationList.appendChild(row);
+  }
+}
+
+function notify(text, error = false) {
+  const friendly = userMessage(text);
+  if (notifications[0]?.text === friendly && notifications[0]?.error === error) {
+    els.notificationToast.hidden = false;
+    window.clearTimeout(notificationTimer);
+    notificationTimer = window.setTimeout(() => {
+      els.notificationToast.hidden = true;
+    }, 4500);
+    return;
+  }
+  notifications.unshift({ id: ++notificationId, text: friendly, error });
+  renderNotifications();
+  message(friendly, error);
+  els.notificationToast.textContent = friendly;
+  els.notificationToast.classList.toggle("error", error);
+  els.notificationToast.hidden = false;
+  window.clearTimeout(notificationTimer);
+  notificationTimer = window.setTimeout(() => {
+    els.notificationToast.hidden = true;
+  }, 4500);
 }
 
 function showSpeed(value) {
@@ -58,8 +118,17 @@ function render(state) {
   els.connectionButton.textContent = busy ? connected ? "Disconnecting..." : "Connecting..." : "Disconnect";
   els.connectionButton.hidden = !connected && !busy;
   els.connectionButton.classList.toggle("danger", connected || busy);
-  if (state.connection_state === "error" && state.last_error) message(state.last_error, true);
-  else if (connected) message(`Connected to ${state.address}`);
+  if (state.connection_state === "error" && state.last_error) {
+    const friendly = userMessage(state.last_error);
+    message(friendly, true);
+    if (state.last_error !== lastBackendError) {
+      lastBackendError = state.last_error;
+      notify(friendly, true);
+    }
+  } else {
+    lastBackendError = "";
+    if (connected) message(`Connected to ${state.address}`);
+  }
 }
 
 async function post(path, body) {
@@ -115,6 +184,7 @@ function renderDevices(devices) {
     empty.className = "device-empty";
     empty.textContent = "No devices found";
     els.deviceList.appendChild(empty);
+    notify("No treadmills found. Make sure the treadmill is on and nearby.");
     return;
   }
 
@@ -148,6 +218,15 @@ async function scanDevices() {
 
 els.scanButton.addEventListener("click", scanDevices);
 els.connectionButton.addEventListener("click", action(() => post("/api/disconnect")));
+els.notificationButton.addEventListener("click", () => {
+  const nextHidden = !els.notificationPanel.hidden;
+  els.notificationPanel.hidden = nextHidden;
+  els.notificationButton.setAttribute("aria-expanded", String(!nextHidden));
+});
+els.clearNotificationsButton.addEventListener("click", () => {
+  notifications.splice(0, notifications.length);
+  renderNotifications();
+});
 els.startButton.addEventListener("click", action(() => post("/api/control/primary"), true));
 els.stopButton.addEventListener("click", action(() => post("/api/control/stop")));
 els.speedInput.addEventListener("input", () => {
@@ -178,4 +257,5 @@ document.addEventListener("keydown", (event) => {
 fetch("/api/state").then((response) => response.json()).then(render).catch(report);
 const events = new EventSource("/api/events");
 events.onmessage = (event) => render(JSON.parse(event.data));
-events.onerror = (error) => console.error(error);
+events.onerror = (error) => report(error);
+renderNotifications();

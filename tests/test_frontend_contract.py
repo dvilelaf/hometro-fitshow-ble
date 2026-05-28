@@ -119,6 +119,28 @@ def test_frontend_hides_raw_network_errors_from_user() -> None:
     assert "error.message || String(error)" not in source
 
 
+def test_frontend_has_notification_center() -> None:
+    source = app_source()
+    html = index_source()
+
+    assert 'id="notificationButton"' in html
+    assert 'id="notificationBadge"' in html
+    assert 'id="notificationPanel"' in html
+    assert 'id="notificationList"' in html
+    assert 'id="clearNotificationsButton"' in html
+    assert 'id="notificationToast"' in html
+    assert "function notify(" in source
+    assert "renderNotifications()" in source
+    assert "userMessage(" in source
+
+
+def test_eventsource_errors_are_user_notifications() -> None:
+    source = app_source()
+
+    assert "events.onerror = (error) => report(error);" in source
+    assert "events.onerror = (error) => console.error(error);" not in source
+
+
 def test_frontend_has_one_primary_control_button_and_stop() -> None:
     source = index_source()
 

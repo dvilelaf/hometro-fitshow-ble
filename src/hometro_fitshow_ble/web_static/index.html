@@ -17,8 +17,25 @@
           <div class="connection-actions">
             <button id="scanButton" type="button">Search</button>
             <button id="connectionButton" type="button">Disconnect</button>
+            <button
+              id="notificationButton"
+              type="button"
+              class="notification-button"
+              aria-label="Notifications"
+              aria-expanded="false"
+            >
+              <span aria-hidden="true">&#128276;</span>
+              <span id="notificationBadge" class="notification-badge" hidden>0</span>
+            </button>
           </div>
           <p id="connectionMessage" class="connection-message" aria-live="polite"></p>
+          <div id="notificationPanel" class="notification-panel" hidden>
+            <div class="notification-panel-header">
+              <strong>Notifications</strong>
+              <button id="clearNotificationsButton" type="button">Clear</button>
+            </div>
+            <div id="notificationList" class="notification-list"></div>
+          </div>
         </div>
       </header>
 
@@ -77,6 +94,7 @@
         </div>
       </section>
     </main>
-    <script src="/static/app.js?v=device-scan-20260528"></script>
+    <div id="notificationToast" class="notification-toast" hidden></div>
+    <script src="/static/app.js?v=notifications-20260528"></script>
   </body>
 </html>
