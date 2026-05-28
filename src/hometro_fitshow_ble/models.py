@@ -8,7 +8,6 @@ from typing import Any
 from .fitshow_oem import FITSHOW_NOTIFY_UUID, FITSHOW_SERVICE_UUID, parse_fitshow_frame
 from .ftms import (
     FITNESS_MACHINE_CONTROL_POINT_UUID,
-    FITNESS_MACHINE_SERVICE_UUID,
     FITNESS_MACHINE_STATUS_UUID,
     TREADMILL_DATA_UUID,
     parse_control_point_response,
@@ -253,8 +252,7 @@ class AdvertisementRecord:
         services = {normalize_uuid(uuid) for uuid in self.service_uuids}
         names = f"{self.name or ''} {self.local_name or ''}".lower()
         known_name = any(marker in names for marker in ("fs-", "fitshow", "hometro"))
-        known_service = bool(services & {FITNESS_MACHINE_SERVICE_UUID, FITSHOW_SERVICE_UUID})
-        return known_name and known_service
+        return known_name or FITSHOW_SERVICE_UUID in services
 
     def to_json(self) -> dict[str, Any]:
         return asdict(self)

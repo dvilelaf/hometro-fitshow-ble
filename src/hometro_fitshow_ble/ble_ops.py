@@ -32,6 +32,7 @@ from .models import (
 )
 from .protocol import bytes_from_hex, hex_from_bytes
 from .replay import ReplayItem, parse_replay_file
+from .system_ble import known_system_devices
 
 
 def _sort_advertisements(rows: list[AdvertisementRecord]) -> list[AdvertisementRecord]:
@@ -44,6 +45,22 @@ async def scan_devices(timeout: float, contains: str | None = None) -> list[Adve
         AdvertisementRecord.from_bleak(device, advertisement)
         for device, advertisement in discovered.values()
     ]
+    seen = {row.address for row in rows}
+    rows.extend(
+        AdvertisementRecord(
+            address=address,
+            name=name,
+            details="known system device",
+            rssi=None,
+            local_name=name,
+            manufacturer_data={},
+            service_data={},
+            service_uuids=[],
+            tx_power=None,
+        )
+        for address, name in await known_system_devices()
+        if address not in seen
+    )
     return _sort_advertisements([row for row in rows if row.matches(contains)])
 
 

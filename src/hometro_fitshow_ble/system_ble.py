@@ -5,6 +5,34 @@ import shutil
 import sys
 
 
+async def known_system_devices(*, timeout: float = 3.0) -> list[tuple[str, str]]:
+    if sys.platform != "linux" or not shutil.which("bluetoothctl"):
+        return []
+
+    process = await asyncio.create_subprocess_exec(
+        "bluetoothctl",
+        "devices",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, _ = await asyncio.wait_for(process.communicate(), timeout=timeout)
+    except TimeoutError:
+        process.kill()
+        await process.wait()
+        return []
+
+    rows: list[tuple[str, str]] = []
+    for line in stdout.decode(errors="replace").splitlines():
+        parts = line.split(maxsplit=2)
+        if len(parts) != 3:
+            continue
+        _, address, name = parts
+        if address:
+            rows.append((address, name))
+    return rows
+
+
 async def release_system_connection(address: str, *, timeout: float = 5.0) -> bool:
     """Ask the OS Bluetooth stack to release a stale BLE connection.
 
