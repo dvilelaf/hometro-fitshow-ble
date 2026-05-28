@@ -148,6 +148,14 @@ def test_primary_controls_have_stable_dimensions() -> None:
     assert "width: 100%" in styles
 
 
+def test_layout_compaction_preserves_metric_cards() -> None:
+    styles = styles_source()
+
+    assert "min-height: 174px" in styles
+    assert "height: 190px" in styles
+    assert "padding: 11px" in styles
+
+
 def test_frontend_renders_speed_chart_from_backend_history() -> None:
     source = app_source()
     html = index_source()
