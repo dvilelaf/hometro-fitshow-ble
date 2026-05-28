@@ -318,10 +318,16 @@ h1 {
 
 .buttons {
   display: grid;
-  grid-template-columns: repeat(2, minmax(132px, 180px));
+  grid-template-columns: repeat(2, 180px);
   gap: 10px;
   justify-content: center;
   margin-bottom: 14px;
+}
+
+.buttons button {
+  height: 44px;
+  min-height: 44px;
+  width: 100%;
 }
 
 .control-panel label {
@@ -484,11 +490,6 @@ button:disabled {
 
   .connection-actions button {
     flex: 1;
-  }
-
-  .connection-message {
-    max-width: none;
-    text-align: left;
   }
 
   .dashboard,

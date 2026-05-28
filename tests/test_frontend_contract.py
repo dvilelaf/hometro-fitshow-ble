@@ -130,11 +130,22 @@ def test_frontend_search_uses_device_panel_not_global_message() -> None:
 def test_frontend_has_no_global_message_surface() -> None:
     source = app_source()
     html = index_source()
+    styles = styles_source()
 
     assert "connectionMessage" not in source
     assert "connectionMessage" not in html
+    assert "connection-message" not in styles
     assert "function message(" not in source
     assert "message(" not in source
+
+
+def test_primary_controls_have_stable_dimensions() -> None:
+    styles = styles_source()
+
+    assert "grid-template-columns: repeat(2, 180px)" in styles
+    assert ".buttons button" in styles
+    assert "height: 44px" in styles
+    assert "width: 100%" in styles
 
 
 def test_frontend_does_not_show_connected_address_as_global_message() -> None:
