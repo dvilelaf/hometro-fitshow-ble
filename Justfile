@@ -23,20 +23,45 @@ run: _setup
         echo "Port {{port}} is already in use. Run just stop or set HOMETRO_PORT."; \
         exit 1; \
     fi; \
-    nohup env PYTHONPATH=src .venv/bin/python -m hometro_fitshow_ble.cli web --host "{{host}}" --port "{{port}}" > "{{logfile}}" 2>&1 < /dev/null & \
-    echo "$!" > "{{pidfile}}"; \
-    echo "Server started with PID $(< "{{pidfile}}")"; \
-    echo "http://{{host}}:{{port}}"
+    if command -v setsid >/dev/null; then \
+        nohup setsid env PYTHONPATH=src .venv/bin/python -m hometro_fitshow_ble.cli web --host "{{host}}" --port "{{port}}" > "{{logfile}}" 2>&1 < /dev/null & \
+    else \
+        nohup env PYTHONPATH=src .venv/bin/python -m hometro_fitshow_ble.cli web --host "{{host}}" --port "{{port}}" > "{{logfile}}" 2>&1 < /dev/null & \
+    fi; \
+    pid="$!"; \
+    echo "$pid" > "{{pidfile}}"; \
+    for _ in 1 2 3 4 5 6 7 8 9 10; do \
+        if ! kill -0 "$pid" 2>/dev/null; then \
+            rm -f "{{pidfile}}"; \
+            echo "Server failed to start. Last log lines:"; \
+            tail -40 "{{logfile}}" 2>/dev/null || true; \
+            exit 1; \
+        fi; \
+        if ss -ltn 2>/dev/null | awk '{print $4}' | grep -Eq '(^|:){{port}}$'; then \
+            echo "Server started with PID $pid"; \
+            echo "http://{{host}}:{{port}}"; \
+            exit 0; \
+        fi; \
+        sleep 0.2; \
+    done; \
+    rm -f "{{pidfile}}"; \
+    echo "Server did not start listening on port {{port}}. Last log lines:"; \
+    tail -40 "{{logfile}}" 2>/dev/null || true; \
+    exit 1
 
 stop:
-    @if [ ! -f "{{pidfile}}" ]; then \
-        echo "No pidfile at {{pidfile}}"; \
-        exit 0; \
+    @pid=""; \
+    if [ -f "{{pidfile}}" ]; then \
+        pid="$(< "{{pidfile}}")"; \
+        if ! kill -0 "$pid" 2>/dev/null; then \
+            rm -f "{{pidfile}}"; \
+            pid=""; \
+        fi; \
     fi; \
-    pid="$(< "{{pidfile}}")"; \
-    if ! kill -0 "$pid" 2>/dev/null; then \
-        rm -f "{{pidfile}}"; \
-        echo "Stale pidfile removed"; \
+    port_pid="$(ss -ltnp 2>/dev/null | sed -n 's/.*:{{port}} .*pid=\([0-9][0-9]*\).*/\1/p' | head -n1)"; \
+    pid="${pid:-$port_pid}"; \
+    if [ -z "$pid" ]; then \
+        echo "No server running on port {{port}}"; \
         exit 0; \
     fi; \
     kill "$pid" 2>/dev/null || true; \
