@@ -241,26 +241,6 @@ h1 {
   padding: 14px;
 }
 
-.speed-chart-header {
-  align-items: baseline;
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.speed-chart-header h2 {
-  font-size: 16px;
-  line-height: 1.2;
-  margin: 0;
-}
-
-.speed-chart-header span {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .speed-chart-panel canvas {
   background: rgba(8, 13, 18, 0.62);
   border: 1px solid var(--line);

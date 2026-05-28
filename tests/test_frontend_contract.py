@@ -154,10 +154,16 @@ def test_frontend_renders_speed_chart_from_backend_history() -> None:
     styles = styles_source()
 
     assert 'id="speedChart"' in html
+    assert "speedChartTitle" not in html
+    assert "km/h over time" not in html
     assert "function drawSpeedChart(" in source
+    assert "function drawSmoothPath(" in source
+    assert "function timeStep(" in source
+    assert "rgba(0, 216, 167, 0.18)" in source
+    assert 'ctx.fillText("Speed"' in source
     assert "drawSpeedChart(state.speed_history || [])" in source
     assert ".speed-chart-panel" in styles
-    assert "canvas" in styles
+    assert "speed-chart-header" not in styles
 
 
 def test_frontend_does_not_show_connected_address_as_global_message() -> None:

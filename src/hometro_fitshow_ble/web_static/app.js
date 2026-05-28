@@ -97,7 +97,16 @@ function showSpeed(value) {
 
 function chartTime(seconds) {
   const value = Math.max(0, Math.round(Number(seconds || 0)));
-  return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
+  if (value < 60) return `${value}s`;
+  if (value % 60 === 0) return `${value / 60}m`;
+  return `${Math.floor(value / 60)}m ${String(value % 60).padStart(2, "0")}s`;
+}
+
+function timeStep(maxTime) {
+  for (const step of [30, 60, 120, 300, 600, 900, 1800]) {
+    if (Math.ceil(maxTime / step) <= 6) return step;
+  }
+  return 3600;
 }
 
 function chartContext() {
@@ -117,15 +126,35 @@ function chartContext() {
   return { ctx, width, height };
 }
 
+function drawSmoothPath(ctx, points, start = true) {
+  if (!points.length) return;
+  if (start) ctx.moveTo(points[0].x, points[0].y);
+  else ctx.lineTo(points[0].x, points[0].y);
+  if (points.length === 1) {
+    ctx.lineTo(points[0].x + 0.1, points[0].y);
+    return;
+  }
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const next = points[index + 1];
+    const midX = (points[index].x + next.x) / 2;
+    const midY = (points[index].y + next.y) / 2;
+    ctx.quadraticCurveTo(points[index].x, points[index].y, midX, midY);
+  }
+  const last = points[points.length - 1];
+  ctx.lineTo(last.x, last.y);
+}
+
 function drawSpeedChart(points = []) {
   const { ctx, width, height } = chartContext();
-  const left = 44;
+  const left = 58;
   const right = 12;
   const top = 14;
-  const bottom = 30;
+  const bottom = 32;
   const plotWidth = Math.max(1, width - left - right);
   const plotHeight = Math.max(1, height - top - bottom);
-  const maxTime = Math.max(60, ...points.map((point) => Number(point.elapsed_s || 0)));
+  const rawMaxTime = Math.max(30, ...points.map((point) => Number(point.elapsed_s || 0)));
+  const xStep = timeStep(rawMaxTime);
+  const maxTime = Math.max(xStep, Math.ceil(rawMaxTime / xStep) * xStep);
   const maxSpeed = Math.max(14, ...points.map((point) => Number(point.speed_kmh || 0)));
   const yMax = Math.ceil(maxSpeed / 2) * 2;
 
@@ -133,8 +162,17 @@ function drawSpeedChart(points = []) {
   ctx.font = "12px Inter, system-ui, sans-serif";
   ctx.lineWidth = 1;
 
+  ctx.save();
+  ctx.fillStyle = "#8ea0ad";
+  ctx.translate(14, top + plotHeight / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center";
+  ctx.fillText("Speed", 0, 0);
+  ctx.restore();
+
   ctx.strokeStyle = "rgba(255, 255, 255, 0.09)";
   ctx.fillStyle = "#8ea0ad";
+  ctx.textAlign = "left";
   for (let step = 0; step <= 4; step += 1) {
     const ratio = step / 4;
     const y = top + plotHeight - plotHeight * ratio;
@@ -143,17 +181,17 @@ function drawSpeedChart(points = []) {
     ctx.moveTo(left, y);
     ctx.lineTo(left + plotWidth, y);
     ctx.stroke();
-    ctx.fillText(String(speed), 8, y + 4);
+    ctx.fillText(String(speed), 28, y + 4);
   }
 
-  for (let step = 0; step <= 4; step += 1) {
-    const ratio = step / 4;
-    const x = left + plotWidth * ratio;
+  for (let time = 0; time <= maxTime; time += xStep) {
+    const x = left + (time / maxTime) * plotWidth;
     ctx.beginPath();
     ctx.moveTo(x, top);
     ctx.lineTo(x, top + plotHeight);
     ctx.stroke();
-    ctx.fillText(chartTime(maxTime * ratio), x - 12, height - 8);
+    ctx.textAlign = time === 0 ? "left" : time === maxTime ? "right" : "center";
+    ctx.fillText(chartTime(time), x, height - 8);
   }
 
   ctx.strokeStyle = "#8ea0ad";
@@ -165,15 +203,23 @@ function drawSpeedChart(points = []) {
 
   if (!points.length) return;
 
+  const chartPoints = points.map((point) => ({
+    x: left + (Number(point.elapsed_s || 0) / maxTime) * plotWidth,
+    y: top + plotHeight - (Number(point.speed_kmh || 0) / yMax) * plotHeight,
+  }));
+
+  ctx.beginPath();
+  ctx.moveTo(chartPoints[0].x, top + plotHeight);
+  drawSmoothPath(ctx, chartPoints, false);
+  ctx.lineTo(chartPoints[chartPoints.length - 1].x, top + plotHeight);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(0, 216, 167, 0.18)";
+  ctx.fill();
+
   ctx.strokeStyle = "#00d8a7";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  points.forEach((point, index) => {
-    const x = left + (Number(point.elapsed_s || 0) / maxTime) * plotWidth;
-    const y = top + plotHeight - (Number(point.speed_kmh || 0) / yMax) * plotHeight;
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
+  drawSmoothPath(ctx, chartPoints);
   ctx.stroke();
 }
 
