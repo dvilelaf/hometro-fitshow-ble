@@ -57,6 +57,7 @@ SUPPORTED_DEFAULTS = {
     "speed_step_kmh": 0.1,
     "incline": False,
 }
+MAX_SPEED_HISTORY_POINTS = 1800
 
 
 @dataclass
@@ -80,6 +81,7 @@ class TreadmillState:
     last_event_ts: str | None = None
     last_raw_hex: str | None = None
     supported: dict[str, Any] = field(default_factory=SUPPORTED_DEFAULTS.copy)
+    speed_history: list[dict[str, float]] = field(default_factory=list)
 
     def snapshot(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -122,6 +124,26 @@ class TreadmillState:
         self.distance_m = 0
         self.calories_kcal = 0
         self.elapsed_s = 0
+        self.speed_history.clear()
+        self.record_speed_sample(elapsed_s=0, speed_kmh=0.0)
+
+    def record_speed_sample(
+        self,
+        *,
+        elapsed_s: int | None = None,
+        speed_kmh: float | None = None,
+    ) -> None:
+        elapsed = elapsed_s if elapsed_s is not None else self.elapsed_s or 0
+        speed = speed_kmh if speed_kmh is not None else self.speed_kmh
+        point = {
+            "elapsed_s": float(max(0, elapsed)),
+            "speed_kmh": round(float(max(0.0, speed)), 2),
+        }
+        if self.speed_history and self.speed_history[-1]["elapsed_s"] == point["elapsed_s"]:
+            self.speed_history[-1] = point
+        else:
+            self.speed_history.append(point)
+        del self.speed_history[:-MAX_SPEED_HISTORY_POINTS]
 
     def apply_distance(self, distance_m: int) -> None:
         if distance_m >= self.distance_m:
@@ -136,6 +158,7 @@ class TreadmillState:
             self.elapsed_s = elapsed_s
 
     def apply_treadmill_data(self, data: Any) -> None:
+        has_speed = data.instantaneous_speed_kmh is not None
         if data.instantaneous_speed_kmh is not None:
             self.speed_kmh = data.instantaneous_speed_kmh
             if data.instantaneous_speed_kmh > 0:
@@ -146,6 +169,8 @@ class TreadmillState:
             self.apply_calories(data.total_energy_kcal)
         if data.elapsed_time_s is not None:
             self.apply_elapsed(data.elapsed_time_s)
+        if has_speed:
+            self.record_speed_sample()
 
     def apply_fitshow_frame(self, frame: Any) -> None:
         self.fitshow_state = frame.state_name
@@ -157,6 +182,8 @@ class TreadmillState:
             self.apply_distance(frame.distance_m)
         if frame.elapsed_s is not None:
             self.apply_elapsed(frame.elapsed_s)
+        if frame.speed_kmh is not None:
+            self.record_speed_sample()
 
     def apply_notification(self, sender_uuid: str, raw: bytes) -> None:
         self.last_event_ts = utc_now()

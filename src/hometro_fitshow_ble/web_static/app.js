@@ -1,4 +1,4 @@
-const els = Object.fromEntries("speed target distanceKm calories elapsed scanButton connectionButton notificationButton notificationBadge notificationPanel notificationList clearNotificationsButton notificationToast devicePanel closeDevicePanelButton deviceList startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
+const els = Object.fromEntries("speed target distanceKm calories elapsed speedChart scanButton connectionButton notificationButton notificationBadge notificationPanel notificationList clearNotificationsButton notificationToast devicePanel closeDevicePanelButton deviceList startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
 
 let speedDebounce = null;
 let notificationId = 0;
@@ -95,6 +95,88 @@ function showSpeed(value) {
   return speed;
 }
 
+function chartTime(seconds) {
+  const value = Math.max(0, Math.round(Number(seconds || 0)));
+  return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
+}
+
+function chartContext() {
+  const canvas = els.speedChart;
+  const rect = canvas.getBoundingClientRect();
+  const pixelRatio = window.devicePixelRatio || 1;
+  const width = Math.max(1, Math.round(rect.width));
+  const height = Math.max(1, Math.round(rect.height));
+  const pixelWidth = Math.round(width * pixelRatio);
+  const pixelHeight = Math.round(height * pixelRatio);
+  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+    canvas.width = pixelWidth;
+    canvas.height = pixelHeight;
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  return { ctx, width, height };
+}
+
+function drawSpeedChart(points = []) {
+  const { ctx, width, height } = chartContext();
+  const left = 44;
+  const right = 12;
+  const top = 14;
+  const bottom = 30;
+  const plotWidth = Math.max(1, width - left - right);
+  const plotHeight = Math.max(1, height - top - bottom);
+  const maxTime = Math.max(60, ...points.map((point) => Number(point.elapsed_s || 0)));
+  const maxSpeed = Math.max(14, ...points.map((point) => Number(point.speed_kmh || 0)));
+  const yMax = Math.ceil(maxSpeed / 2) * 2;
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.font = "12px Inter, system-ui, sans-serif";
+  ctx.lineWidth = 1;
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.09)";
+  ctx.fillStyle = "#8ea0ad";
+  for (let step = 0; step <= 4; step += 1) {
+    const ratio = step / 4;
+    const y = top + plotHeight - plotHeight * ratio;
+    const speed = Math.round(yMax * ratio);
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(left + plotWidth, y);
+    ctx.stroke();
+    ctx.fillText(String(speed), 8, y + 4);
+  }
+
+  for (let step = 0; step <= 4; step += 1) {
+    const ratio = step / 4;
+    const x = left + plotWidth * ratio;
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, top + plotHeight);
+    ctx.stroke();
+    ctx.fillText(chartTime(maxTime * ratio), x - 12, height - 8);
+  }
+
+  ctx.strokeStyle = "#8ea0ad";
+  ctx.beginPath();
+  ctx.moveTo(left, top);
+  ctx.lineTo(left, top + plotHeight);
+  ctx.lineTo(left + plotWidth, top + plotHeight);
+  ctx.stroke();
+
+  if (!points.length) return;
+
+  ctx.strokeStyle = "#00d8a7";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    const x = left + (Number(point.elapsed_s || 0) / maxTime) * plotWidth;
+    const y = top + plotHeight - (Number(point.speed_kmh || 0) / yMax) * plotHeight;
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+
 function render(state) {
   const target = Number(state.target_speed_kmh || 1);
   const connected = Boolean(state.connected);
@@ -108,6 +190,7 @@ function render(state) {
   els.startButton.textContent = state.primary_action_label || "Start";
   if (els.target) els.target.textContent = state.target_speed_kmh == null ? "-" : target.toFixed(1);
   showSpeed(target);
+  drawSpeedChart(state.speed_history || []);
 
   els.connectionButton.disabled = busy;
   els.connectionButton.textContent = busy ? connected ? "Disconnecting..." : "Connecting..." : "Disconnect";

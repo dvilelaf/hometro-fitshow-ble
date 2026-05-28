@@ -5,6 +5,7 @@ import pytest
 import hometro_fitshow_ble.controller as controller_module
 from hometro_fitshow_ble.controller import ConnectionState, TreadmillController
 from hometro_fitshow_ble.ftms import TREADMILL_DATA_UUID
+from hometro_fitshow_ble.models import TreadmillState
 
 
 class FakeBleakClient:
@@ -148,6 +149,35 @@ def test_observed_speed_does_not_overwrite_software_target(monkeypatch: pytest.M
 
     assert controller.state.speed_kmh == 1.0
     assert controller.state.target_speed_kmh == 4.0
+
+
+def test_speed_history_tracks_observed_treadmill_speed(monkeypatch: pytest.MonkeyPatch):
+    setup_fake_bleak(monkeypatch, fail_attempts=0)
+    controller = TreadmillController("66:99:D4:F6:7B:30")
+
+    async def exercise() -> dict:
+        await controller.connect()
+        controller._handle_notification(
+            TREADMILL_DATA_UUID,
+            bytearray.fromhex("84 04 90 01 2c 01 00 00 00 ff ff ff 0c 00"),
+        )
+        await asyncio.sleep(0)
+        return controller.state.snapshot()
+
+    state = asyncio.run(exercise())
+
+    assert state["speed_history"] == [{"elapsed_s": 12.0, "speed_kmh": 4.0}]
+
+
+def test_speed_history_resets_with_session_metrics():
+    state = TreadmillState(address="66:99:D4:F6:7B:30")
+    state.elapsed_s = 10
+    state.speed_kmh = 3.0
+    state.record_speed_sample()
+
+    state.reset_session_metrics()
+
+    assert state.speed_history == [{"elapsed_s": 0.0, "speed_kmh": 0.0}]
 
 
 def test_slowdown_notification_below_command_minimum_is_allowed(
