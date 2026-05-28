@@ -233,15 +233,15 @@ h1 {
   padding: 14px;
 }
 
-.speed-chart-panel {
+.speed-chart {
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 8px;
-  margin-top: 12px;
+  grid-column: 1 / -1;
   padding: 14px;
 }
 
-.speed-chart-panel canvas {
+.speed-chart canvas {
   background: rgba(8, 13, 18, 0.62);
   border: 1px solid var(--line);
   border-radius: 6px;

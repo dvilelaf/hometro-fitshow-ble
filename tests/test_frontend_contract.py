@@ -165,7 +165,10 @@ def test_frontend_renders_speed_chart_from_backend_history() -> None:
     assert "rgba(0, 216, 167, 0.18)" in source
     assert 'ctx.fillText("Speed"' in source
     assert "drawSpeedChart(state.speed_history || [])" in source
-    assert ".speed-chart-panel" in styles
+    assert '<div class="speed-chart">' in html
+    assert '<section class="speed-chart-panel">' not in html
+    assert ".speed-chart {" in styles
+    assert "grid-column: 1 / -1" in styles
     assert "speed-chart-header" not in styles
 
 
