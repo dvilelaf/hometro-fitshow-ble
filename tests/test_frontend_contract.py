@@ -119,8 +119,17 @@ def test_frontend_search_uses_device_panel_not_global_message() -> None:
     scan_block = source[scan_index : source.index("\nels.scanButton", scan_index)]
 
     assert "els.devicePanel.hidden = false" in scan_block
-    assert "message(\"Searching" not in scan_block
     assert "No treadmill found" in source
+
+
+def test_frontend_has_no_global_message_surface() -> None:
+    source = app_source()
+    html = index_source()
+
+    assert "connectionMessage" not in source
+    assert "connectionMessage" not in html
+    assert "function message(" not in source
+    assert "message(" not in source
 
 
 def test_frontend_does_not_show_connected_address_as_global_message() -> None:

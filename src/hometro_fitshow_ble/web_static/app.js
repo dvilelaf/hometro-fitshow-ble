@@ -1,4 +1,4 @@
-const els = Object.fromEntries("speed target distanceKm calories elapsed scanButton connectionButton connectionMessage notificationButton notificationBadge notificationPanel notificationList clearNotificationsButton notificationToast devicePanel closeDevicePanelButton deviceList startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
+const els = Object.fromEntries("speed target distanceKm calories elapsed scanButton connectionButton notificationButton notificationBadge notificationPanel notificationList clearNotificationsButton notificationToast devicePanel closeDevicePanelButton deviceList startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
 
 let speedDebounce = null;
 let notificationId = 0;
@@ -6,11 +6,6 @@ let notificationTimer = null;
 let lastBackendError = "";
 const notifications = [];
 const clampSpeed = (value) => Math.min(14, Math.max(1, Number(value || 1)));
-
-function message(text = "", error = false) {
-  els.connectionMessage.textContent = text;
-  els.connectionMessage.classList.toggle("error", error);
-}
 
 function userMessage(error) {
   const text = error?.message || String(error || "");
@@ -84,7 +79,6 @@ function notify(text, error = false) {
   }
   notifications.unshift({ id: ++notificationId, text: friendly, error });
   renderNotifications();
-  message(friendly, error);
   els.notificationToast.textContent = friendly;
   els.notificationToast.classList.toggle("error", error);
   els.notificationToast.hidden = false;
@@ -121,7 +115,6 @@ function render(state) {
   els.connectionButton.classList.toggle("danger", connected || busy);
   if (state.connection_state === "error" && state.last_error) {
     const friendly = userMessage(state.last_error);
-    message(friendly, true);
     if (state.last_error !== lastBackendError) {
       lastBackendError = state.last_error;
       notify(friendly, true);
@@ -161,7 +154,6 @@ async function flushSpeed() {
 
 function action(fn, flush = false) {
   return async () => {
-    message();
     try {
       flush ? await flushSpeed() : cancelSpeed();
       await fn();
