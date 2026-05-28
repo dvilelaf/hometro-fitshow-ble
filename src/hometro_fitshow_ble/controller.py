@@ -27,6 +27,8 @@ NOTIFY_UUIDS = (
     TREADMILL_DATA_UUID,
     FITSHOW_NOTIFY_UUID,
 )
+TARGET_RESTORE_ATTEMPTS = 5
+TARGET_RESTORE_INTERVAL_SECONDS = 0.75
 
 
 class TreadmillController:
@@ -131,19 +133,27 @@ class TreadmillController:
         await self._publish()
         return self.state.snapshot()
 
+    async def connection_toggle(self) -> dict[str, Any]:
+        if self.connected:
+            return await self.disconnect(stop_first=True)
+        return await self.connect()
+
     async def play(self, speed_kmh: float | None = None) -> dict[str, Any]:
         async with self._operation_lock:
             return await self._play_unlocked(speed_kmh)
+
+    async def primary_action(self) -> dict[str, Any]:
+        async with self._operation_lock:
+            if self.state.machine_state in {MachineState.RUNNING, MachineState.STARTING}:
+                return await self._send_and_set_state(pause_command(), MachineState.PAUSED)
+            return await self._play_unlocked()
 
     async def stop(self) -> dict[str, Any]:
         async with self._operation_lock:
             return await self._send_and_set_state(stop_command(), MachineState.IDLE)
 
     async def pause_toggle(self) -> dict[str, Any]:
-        async with self._operation_lock:
-            if self.state.machine_state in {MachineState.RUNNING, MachineState.STARTING}:
-                return await self._send_and_set_state(pause_command(), MachineState.PAUSED)
-            return await self._play_unlocked()
+        return await self.primary_action()
 
     async def set_speed(self, speed_kmh: float) -> dict[str, Any]:
         async with self._operation_lock:
@@ -158,13 +168,18 @@ class TreadmillController:
             return self.state.snapshot()
 
     async def _play_unlocked(self, speed_kmh: float | None = None) -> dict[str, Any]:
+        reset_metrics = self.state.machine_state in {MachineState.UNKNOWN, MachineState.IDLE}
         if speed_kmh is not None:
             self.state.target_speed_kmh = self.state.validate_speed(speed_kmh)
         await self.connect()
         await self.request_control()
+        if reset_metrics:
+            self.state.reset_session_metrics()
         await self._send_control(set_target_speed_command(self.state.target_speed_kmh))
         await self._send_control(start_or_resume_command())
         self.state.set_machine(MachineState.STARTING)
+        await self._publish()
+        await self._restore_target_speed()
         await self._publish()
         return self.state.snapshot()
 
@@ -173,6 +188,11 @@ class TreadmillController:
         self.state.set_machine(state)
         await self._publish()
         return self.state.snapshot()
+
+    async def _restore_target_speed(self) -> None:
+        for _ in range(TARGET_RESTORE_ATTEMPTS):
+            await asyncio.sleep(TARGET_RESTORE_INTERVAL_SECONDS)
+            await self._send_control(set_target_speed_command(self.state.target_speed_kmh))
 
     async def subscribe(self) -> asyncio.Queue[dict[str, Any]]:
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=20)

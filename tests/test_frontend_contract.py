@@ -2,10 +2,15 @@ import re
 from pathlib import Path
 
 APP_JS = Path("src/hometro_fitshow_ble/web_static/app.js")
+INDEX_HTML = Path("src/hometro_fitshow_ble/web_static/index.html")
 
 
 def app_source() -> str:
     return APP_JS.read_text(encoding="utf-8")
+
+
+def index_source() -> str:
+    return INDEX_HTML.read_text(encoding="utf-8")
 
 
 def find_matching_brace(source: str, open_brace: int) -> int:
@@ -53,45 +58,64 @@ def enclosing_function(source: str, index: int) -> str | None:
     return name
 
 
-def pause_button_text_occurrences(source: str) -> list[int]:
-    return [match.start() for match in re.finditer(r"\bpauseButton\.textContent\b", source)]
+def start_button_text_occurrences(source: str) -> list[int]:
+    return [match.start() for match in re.finditer(r"\bstartButton\.textContent\b", source)]
 
 
-def test_frontend_does_not_read_pause_button_text_for_control_logic() -> None:
+def test_frontend_does_not_read_primary_button_text_for_control_logic() -> None:
     source = app_source()
 
-    for index in pause_button_text_occurrences(source):
-        after_property = source[index + len("pauseButton.textContent") :].lstrip()
+    for index in start_button_text_occurrences(source):
+        after_property = source[index + len("startButton.textContent") :].lstrip()
         assert after_property.startswith("=")
         assert not after_property.startswith(("==", "==="))
 
 
-def test_frontend_only_renders_pause_button_text_inside_render() -> None:
+def test_frontend_only_renders_primary_button_text_inside_render() -> None:
     source = app_source()
-    assignments = list(re.finditer(r"\bpauseButton\.textContent\s*=(?!=)", source))
+    assignments = list(re.finditer(r"\bstartButton\.textContent\s*=(?!=)", source))
 
-    assert assignments, "render should set the Pause/Resume label"
+    assert assignments, "render should set the Start/Pause/Resume label"
     for assignment in assignments:
         function_name = enclosing_function(source, assignment.start())
         assert function_name is not None
         assert "render" in function_name.lower()
 
 
-def test_frontend_uses_minimal_play_and_pause_toggle_endpoints() -> None:
+def test_frontend_uses_backend_primary_control_endpoint() -> None:
     source = app_source()
 
-    assert '"/api/control/play"' in source
-    assert '"/api/control/pause-toggle"' in source
+    assert '"/api/control/primary"' in source
+    assert '"/api/control/play"' not in source
+    assert '"/api/control/pause-toggle"' not in source
     assert '"/api/control/resume"' not in source
 
 
-def test_space_key_uses_pause_toggle_not_play() -> None:
+def test_frontend_delegates_connection_and_pause_state_to_backend() -> None:
+    source = app_source()
+
+    assert "let state" not in source
+    assert "pendingSpeedFlush" not in source
+    assert "state?.connected" not in source
+    assert '"/api/connection-toggle"' in source
+
+
+def test_frontend_has_one_primary_control_button_and_stop() -> None:
+    source = index_source()
+
+    assert 'id="startButton"' in source
+    assert 'id="stopButton"' in source
+    assert 'id="pauseButton"' not in source
+
+
+def test_space_key_uses_backend_primary_control() -> None:
     source = app_source()
     space_index = source.index('event.code === "Space"')
     block_end = source.index('} else if (/^[0-9]$/.test(event.key))', space_index)
     block = source[space_index:block_end]
 
-    assert '"/api/control/pause-toggle"' in block
+    assert '"/api/control/primary"' in block
+    assert '"/api/control/pause-toggle"' not in block
     assert '"/api/control/play"' not in block
 
 
@@ -104,4 +128,5 @@ def test_number_keys_set_speed_without_starting() -> None:
 
     assert '"/api/control/speed"' in set_speed_block
     assert "setSpeed(" in digit_block
+    assert '"/api/control/primary"' not in digit_block
     assert '"/api/control/play"' not in digit_block

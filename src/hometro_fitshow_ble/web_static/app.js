@@ -1,9 +1,7 @@
-const els = Object.fromEntries("speed target distanceKm calories elapsed connectionButton connectionMessage startButton pauseButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
+const els = Object.fromEntries("speed target distanceKm calories elapsed connectionButton connectionMessage startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
 
-let state = null;
 let speedDebounce = null;
 const clampSpeed = (value) => Math.min(14, Math.max(1, Number(value || 1)));
-const pendingSpeedFlush = () => !(state?.running || state?.machine_state === "starting");
 
 function message(text = "", error = false) {
   els.connectionMessage.textContent = text;
@@ -22,8 +20,7 @@ function showSpeed(value) {
   return speed;
 }
 
-function render(next) {
-  state = next;
+function render(state) {
   const target = Number(state.target_speed_kmh || 1);
   const connected = Boolean(state.connected);
   const busy = ["connecting", "disconnecting"].includes(state.connection_state);
@@ -33,7 +30,7 @@ function render(next) {
   els.distanceKm.textContent = (Number(state.distance_m || 0) / 1000).toFixed(3);
   els.calories.textContent = state.calories_kcal == null ? "-" : String(state.calories_kcal);
   els.elapsed.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-  els.pauseButton.textContent = state.paused ? "Resume" : "Pause";
+  els.startButton.textContent = state.primary_action_label || "Start";
   if (els.target) els.target.textContent = state.target_speed_kmh == null ? "-" : target.toFixed(1);
   showSpeed(target);
 
@@ -84,9 +81,8 @@ function action(fn, flush = false) {
     }
   };
 }
-els.connectionButton.addEventListener("click", action(() => post(state?.connected ? "/api/disconnect" : "/api/connect")));
-els.startButton.addEventListener("click", action(() => post("/api/control/play"), true));
-els.pauseButton.addEventListener("click", () => action(() => post("/api/control/pause-toggle"), pendingSpeedFlush())());
+els.connectionButton.addEventListener("click", action(() => post("/api/connection-toggle")));
+els.startButton.addEventListener("click", action(() => post("/api/control/primary"), true));
 els.stopButton.addEventListener("click", action(() => post("/api/control/stop")));
 els.speedInput.addEventListener("input", () => {
   const speed = showSpeed(els.speedInput.value);
@@ -107,7 +103,7 @@ document.addEventListener("keydown", (event) => {
   if (event.repeat) return;
   if (event.code === "Space" || event.key === " " || event.key === "Spacebar") {
     event.preventDefault();
-    action(() => post("/api/control/pause-toggle"), pendingSpeedFlush())();
+    action(() => post("/api/control/primary"), true)();
   } else if (/^[0-9]$/.test(event.key)) {
     event.preventDefault();
     setSpeed(event.key === "0" ? 10 : Number(event.key)).catch(report);

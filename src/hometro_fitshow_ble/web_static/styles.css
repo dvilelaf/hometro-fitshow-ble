@@ -185,7 +185,7 @@ h1 {
 
 .buttons {
   display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 180px));
+  grid-template-columns: repeat(2, minmax(132px, 180px));
   gap: 10px;
   justify-content: center;
   margin-bottom: 14px;

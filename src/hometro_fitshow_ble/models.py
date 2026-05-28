@@ -74,7 +74,20 @@ class TreadmillState:
     supported: dict[str, Any] = field(default_factory=SUPPORTED_DEFAULTS.copy)
 
     def snapshot(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        payload["primary_action"] = self.primary_action()
+        payload["primary_action_label"] = self.primary_action_label()
+        return payload
+
+    def primary_action(self) -> str:
+        if self.machine_state in {MachineState.RUNNING, MachineState.STARTING}:
+            return "pause"
+        if self.machine_state == MachineState.PAUSED:
+            return "resume"
+        return "start"
+
+    def primary_action_label(self) -> str:
+        return self.primary_action().title()
 
     def validate_speed(self, speed_kmh: float) -> float:
         min_speed = float(self.supported["min_speed_kmh"])
@@ -93,21 +106,38 @@ class TreadmillState:
         self.paused = state == MachineState.PAUSED
 
     def set_observed_machine(self, state: MachineState) -> None:
-        if self.machine_state == MachineState.PAUSED and state == MachineState.IDLE:
+        if self.machine_state == MachineState.PAUSED:
             return
         self.set_machine(state)
+
+    def reset_session_metrics(self) -> None:
+        self.distance_m = 0
+        self.calories_kcal = 0
+        self.elapsed_s = 0
+
+    def apply_distance(self, distance_m: int) -> None:
+        if distance_m >= self.distance_m:
+            self.distance_m = distance_m
+
+    def apply_calories(self, calories_kcal: int) -> None:
+        if self.calories_kcal is None or calories_kcal >= self.calories_kcal:
+            self.calories_kcal = calories_kcal
+
+    def apply_elapsed(self, elapsed_s: int) -> None:
+        if self.elapsed_s is None or elapsed_s >= self.elapsed_s:
+            self.elapsed_s = elapsed_s
 
     def apply_treadmill_data(self, data: Any) -> None:
         if data.instantaneous_speed_kmh is not None:
             self.speed_kmh = data.instantaneous_speed_kmh
             if data.instantaneous_speed_kmh > 0:
-                self.set_machine(MachineState.RUNNING)
+                self.set_observed_machine(MachineState.RUNNING)
         if data.total_distance_m is not None:
-            self.distance_m = data.total_distance_m
+            self.apply_distance(data.total_distance_m)
         if data.total_energy_kcal is not None:
-            self.calories_kcal = data.total_energy_kcal
+            self.apply_calories(data.total_energy_kcal)
         if data.elapsed_time_s is not None:
-            self.elapsed_s = data.elapsed_time_s
+            self.apply_elapsed(data.elapsed_time_s)
 
     def apply_fitshow_frame(self, frame: Any) -> None:
         self.fitshow_state = frame.state_name
@@ -116,9 +146,9 @@ class TreadmillState:
         if frame.speed_kmh is not None:
             self.speed_kmh = frame.speed_kmh
         if frame.distance_m is not None:
-            self.distance_m = frame.distance_m
+            self.apply_distance(frame.distance_m)
         if frame.elapsed_s is not None:
-            self.elapsed_s = frame.elapsed_s
+            self.apply_elapsed(frame.elapsed_s)
 
     def apply_notification(self, sender_uuid: str, raw: bytes) -> None:
         self.last_event_ts = utc_now()

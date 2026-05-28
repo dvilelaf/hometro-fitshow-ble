@@ -43,7 +43,9 @@ def create_app(address: str, *, timeout: float = 15.0) -> FastAPI:
 
     post("/api/connect", controller.connect)
     post("/api/disconnect", lambda: controller.disconnect(stop_first=True))
+    post("/api/connection-toggle", controller.connection_toggle)
     post("/api/control/play", controller.play)
+    post("/api/control/primary", controller.primary_action)
     post("/api/control/stop", controller.stop)
     post("/api/control/pause-toggle", controller.pause_toggle)
 
