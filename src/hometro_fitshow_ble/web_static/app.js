@@ -8,9 +8,29 @@ function message(text = "", error = false) {
   els.connectionMessage.classList.toggle("error", error);
 }
 
+function userMessage(error) {
+  const text = error?.message || String(error || "");
+  const lower = text.toLowerCase();
+
+  if (
+    lower.includes("networkerror") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("load failed")
+  ) {
+    return "Cannot reach the local app. Make sure just run is still running.";
+  }
+  if (lower.includes("select a treadmill first") || lower.includes("device address")) {
+    return "Search for your treadmill and select it first.";
+  }
+  if (lower.includes("bluetooth") || lower.includes("bleak")) {
+    return "Bluetooth connection failed. Make sure the treadmill is on and nearby.";
+  }
+  return text || "Something went wrong. Try again.";
+}
+
 function report(error) {
   console.error(error);
-  message(error.message || String(error), true);
+  message(userMessage(error), true);
 }
 
 function showSpeed(value) {

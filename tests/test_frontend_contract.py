@@ -111,6 +111,14 @@ def test_frontend_scans_and_connects_to_selected_device() -> None:
     assert 'id="deviceList"' in html
 
 
+def test_frontend_hides_raw_network_errors_from_user() -> None:
+    source = app_source()
+
+    assert "Cannot reach the local app" in source
+    assert "NetworkError" not in source
+    assert "error.message || String(error)" not in source
+
+
 def test_frontend_has_one_primary_control_button_and_stop() -> None:
     source = index_source()
 
