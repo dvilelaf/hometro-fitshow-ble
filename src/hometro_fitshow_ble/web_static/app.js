@@ -101,10 +101,19 @@ function chartTime(seconds) {
 }
 
 function timeStep(maxTime) {
-  for (const step of [30, 60, 120, 300, 600, 900, 1800]) {
+  for (const step of [5, 10, 15, 30, 60, 120, 300, 600, 900, 1800]) {
     if (Math.ceil(maxTime / step) <= 6) return step;
   }
   return 3600;
+}
+
+function chartTicks(maxTime, step) {
+  const ticks = [0];
+  for (let time = step; time < maxTime; time += step) {
+    ticks.push(time);
+  }
+  if (!ticks.includes(maxTime)) ticks.push(maxTime);
+  return ticks;
 }
 
 function chartContext() {
@@ -182,7 +191,7 @@ function drawSpeedChart(points = []) {
     ctx.fillText(String(speed), 28, y + 4);
   }
 
-  for (let time = 0; time <= maxTime; time += xStep) {
+  for (const time of chartTicks(maxTime, xStep)) {
     const x = left + (time / maxTime) * plotWidth;
     ctx.beginPath();
     ctx.moveTo(x, top);

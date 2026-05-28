@@ -160,6 +160,9 @@ def test_frontend_renders_speed_chart_from_backend_history() -> None:
     assert 'padStart(2, "0")' in source
     assert "function drawSmoothPath(" in source
     assert "function timeStep(" in source
+    assert "function chartTicks(" in source
+    assert "for (const step of [5, 10, 15, 30" in source
+    assert "if (!ticks.includes(maxTime)) ticks.push(maxTime)" in source
     assert "const maxTime = rawMaxTime" in source
     assert "Math.ceil(rawMaxTime / xStep)" not in source
     assert "rgba(0, 216, 167, 0.18)" in source
