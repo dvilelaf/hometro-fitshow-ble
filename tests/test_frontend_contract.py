@@ -123,6 +123,12 @@ def test_frontend_search_uses_device_panel_not_global_message() -> None:
     assert "No treadmill found" in source
 
 
+def test_frontend_does_not_show_connected_address_as_global_message() -> None:
+    source = app_source()
+
+    assert "Connected to" not in source
+
+
 def test_frontend_hides_raw_network_errors_from_user() -> None:
     source = app_source()
 

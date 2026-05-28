@@ -128,7 +128,6 @@ function render(state) {
     }
   } else {
     lastBackendError = "";
-    if (connected) message(`Connected to ${state.address}`);
   }
 }
 
