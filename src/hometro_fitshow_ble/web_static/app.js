@@ -1,4 +1,4 @@
-const els = Object.fromEntries("speed target distanceKm calories elapsed speedChart scanButton connectionButton notificationButton notificationBadge notificationPanel notificationList clearNotificationsButton notificationToast devicePanel closeDevicePanelButton deviceList startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
+const els = Object.fromEntries("speed target distanceKm calories elapsed speedChart scanButton connectionButton notificationButton notificationBadge notificationPanel notificationList clearNotificationsButton notificationToast fullscreenButton fullscreenIcon devicePanel closeDevicePanelButton deviceList startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
 
 let speedDebounce = null;
 let notificationId = 0;
@@ -86,6 +86,25 @@ function notify(text, error = false) {
   notificationTimer = window.setTimeout(() => {
     els.notificationToast.hidden = true;
   }, 4500);
+}
+
+function renderFullscreenButton() {
+  const active = Boolean(document.fullscreenElement);
+  els.fullscreenButton.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
+  els.fullscreenIcon.classList.toggle("minimize", active);
+}
+
+async function toggleFullscreen() {
+  if (!document.fullscreenEnabled) {
+    notify("Fullscreen is not available in this browser.", true);
+    return;
+  }
+  if (document.fullscreenElement) {
+    await document.exitFullscreen();
+  } else {
+    await document.documentElement.requestFullscreen();
+  }
+  renderFullscreenButton();
 }
 
 function showSpeed(value) {
@@ -374,6 +393,7 @@ els.clearNotificationsButton.addEventListener("click", () => {
   notifications.splice(0, notifications.length);
   renderNotifications();
 });
+els.fullscreenButton.addEventListener("click", () => toggleFullscreen().catch(report));
 els.startButton.addEventListener("click", action(() => post("/api/control/primary"), true));
 els.stopButton.addEventListener("click", action(() => post("/api/control/stop")));
 els.speedInput.addEventListener("input", () => {
@@ -396,6 +416,9 @@ document.addEventListener("keydown", (event) => {
   if (event.code === "Space" || event.key === " " || event.key === "Spacebar") {
     event.preventDefault();
     action(() => post("/api/control/primary"), true)();
+  } else if (event.key.toLowerCase() === "f" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault();
+    toggleFullscreen().catch(report);
   } else if (/^[0-9]$/.test(event.key)) {
     event.preventDefault();
     setSpeed(event.key === "0" ? 10 : Number(event.key)).catch(report);
@@ -405,4 +428,6 @@ fetch("/api/state").then((response) => response.json()).then(render).catch(repor
 const events = new EventSource("/api/events");
 events.onmessage = (event) => render(JSON.parse(event.data));
 events.onerror = (error) => report(error);
+document.addEventListener("fullscreenchange", renderFullscreenButton);
 renderNotifications();
+renderFullscreenButton();

@@ -236,6 +236,23 @@ def test_notification_button_uses_local_icon_asset() -> None:
     assert Path("src/hometro_fitshow_ble/web_static/icons/bell.svg").exists()
 
 
+def test_fullscreen_button_uses_local_icons_and_f_key() -> None:
+    source = app_source()
+    html = index_source()
+    styles = styles_source()
+
+    assert 'id="fullscreenButton"' in html
+    assert 'id="fullscreenIcon"' in html
+    assert "function toggleFullscreen(" in source
+    assert "document.fullscreenElement" in source
+    assert 'event.key.toLowerCase() === "f"' in source
+    assert "!event.ctrlKey" in source
+    assert "icons/maximize-2.svg" in styles
+    assert "icons/minimize-2.svg" in styles
+    assert Path("src/hometro_fitshow_ble/web_static/icons/maximize-2.svg").exists()
+    assert Path("src/hometro_fitshow_ble/web_static/icons/minimize-2.svg").exists()
+
+
 def test_eventsource_errors_are_user_notifications() -> None:
     source = app_source()
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>HomeTro BLE Control</title>
-    <link rel="stylesheet" href="/static/styles.css?v=topbar-title-only-20260528" />
+    <link rel="stylesheet" href="/static/styles.css?v=fullscreen-button-20260528" />
   </head>
   <body>
     <main class="shell">
@@ -25,6 +25,14 @@
             >
               <span class="notification-icon" aria-hidden="true"></span>
               <span id="notificationBadge" class="notification-badge" hidden>0</span>
+            </button>
+            <button
+              id="fullscreenButton"
+              type="button"
+              class="fullscreen-button"
+              aria-label="Enter fullscreen"
+            >
+              <span id="fullscreenIcon" class="fullscreen-icon" aria-hidden="true"></span>
             </button>
           </div>
           <div id="notificationPanel" class="notification-panel" hidden>
@@ -99,6 +107,6 @@
       </section>
     </main>
     <div id="notificationToast" class="notification-toast" hidden></div>
-    <script src="/static/app.js?v=topbar-title-only-20260528"></script>
+    <script src="/static/app.js?v=fullscreen-button-20260528"></script>
   </body>
 </html>

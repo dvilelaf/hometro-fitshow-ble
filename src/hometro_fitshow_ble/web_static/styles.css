@@ -66,7 +66,8 @@ input {
   justify-content: flex-end;
 }
 
-.notification-button {
+.notification-button,
+.fullscreen-button {
   align-items: center;
   display: inline-flex;
   justify-content: center;
@@ -76,13 +77,27 @@ input {
   width: 32px;
 }
 
-.notification-icon {
+.notification-icon,
+.fullscreen-icon {
   background: currentColor;
   display: block;
   height: 18px;
-  mask: url("/static/icons/bell.svg") center / contain no-repeat;
   width: 18px;
+}
+
+.notification-icon {
+  mask: url("/static/icons/bell.svg") center / contain no-repeat;
   -webkit-mask: url("/static/icons/bell.svg") center / contain no-repeat;
+}
+
+.fullscreen-icon {
+  mask: url("/static/icons/maximize-2.svg") center / contain no-repeat;
+  -webkit-mask: url("/static/icons/maximize-2.svg") center / contain no-repeat;
+}
+
+.fullscreen-icon.minimize {
+  mask: url("/static/icons/minimize-2.svg") center / contain no-repeat;
+  -webkit-mask: url("/static/icons/minimize-2.svg") center / contain no-repeat;
 }
 
 .notification-badge {
