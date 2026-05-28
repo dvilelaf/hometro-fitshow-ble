@@ -5,9 +5,10 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from .fitshow_oem import FITSHOW_NOTIFY_UUID, parse_fitshow_frame
+from .fitshow_oem import FITSHOW_NOTIFY_UUID, FITSHOW_SERVICE_UUID, parse_fitshow_frame
 from .ftms import (
     FITNESS_MACHINE_CONTROL_POINT_UUID,
+    FITNESS_MACHINE_SERVICE_UUID,
     FITNESS_MACHINE_STATUS_UUID,
     TREADMILL_DATA_UUID,
     parse_control_point_response,
@@ -22,6 +23,13 @@ def utc_now() -> str:
 
 def bytes_map_to_json(data: dict[Any, bytes] | None) -> dict[str, str]:
     return {str(key): value.hex(" ") for key, value in (data or {}).items()}
+
+
+def normalize_uuid(value: str) -> str:
+    value = value.lower()
+    if len(value) == 4:
+        return f"0000{value}-0000-1000-8000-00805f9b34fb"
+    return value
 
 
 class ConnectionState(StrEnum):
@@ -213,6 +221,13 @@ class AdvertisementRecord:
             for value in (self.name, self.local_name, self.address, self.service_uuids)
         ).lower()
         return needle.lower() in haystack
+
+    def is_known_treadmill(self) -> bool:
+        services = {normalize_uuid(uuid) for uuid in self.service_uuids}
+        names = f"{self.name or ''} {self.local_name or ''}".lower()
+        known_name = any(marker in names for marker in ("fs-", "fitshow", "hometro"))
+        known_service = bool(services & {FITNESS_MACHINE_SERVICE_UUID, FITSHOW_SERVICE_UUID})
+        return known_name and known_service
 
     def to_json(self) -> dict[str, Any]:
         return asdict(self)

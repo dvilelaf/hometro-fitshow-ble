@@ -145,7 +145,8 @@ input {
   top: -6px;
 }
 
-.notification-panel {
+.notification-panel,
+.device-panel {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -159,6 +160,7 @@ input {
 }
 
 .notification-panel-header,
+.device-panel-header,
 .notification-item {
   align-items: center;
   display: flex;
@@ -166,11 +168,13 @@ input {
   justify-content: space-between;
 }
 
-.notification-panel-header {
+.notification-panel-header,
+.device-panel-header {
   margin-bottom: 8px;
 }
 
 .notification-panel-header button,
+.device-panel-header button,
 .notification-item button {
   min-height: 30px;
   padding: 4px 8px;
@@ -232,14 +236,6 @@ h1 {
   font-size: 20px;
   line-height: 1.1;
   margin: 4px 0 0;
-}
-
-.device-panel {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  margin-bottom: 12px;
-  padding: 10px;
 }
 
 .device-list {

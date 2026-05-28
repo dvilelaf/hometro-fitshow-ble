@@ -1,4 +1,4 @@
-const els = Object.fromEntries("speed target distanceKm calories elapsed scanButton connectionButton connectionMessage notificationButton notificationBadge notificationPanel notificationList clearNotificationsButton notificationToast devicePanel deviceList startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
+const els = Object.fromEntries("speed target distanceKm calories elapsed scanButton connectionButton connectionMessage notificationButton notificationBadge notificationPanel notificationList clearNotificationsButton notificationToast devicePanel closeDevicePanelButton deviceList startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
 
 let speedDebounce = null;
 let notificationId = 0;
@@ -179,13 +179,14 @@ function deviceName(device) {
 function renderDevices(devices) {
   els.deviceList.replaceChildren();
   els.devicePanel.hidden = false;
+  els.notificationPanel.hidden = true;
+  els.notificationButton.setAttribute("aria-expanded", "false");
 
   if (!devices.length) {
     const empty = document.createElement("div");
     empty.className = "device-empty";
-    empty.textContent = "No devices found";
+    empty.textContent = "No treadmill found. Turn it on and keep it nearby.";
     els.deviceList.appendChild(empty);
-    notify("No treadmills found. Make sure the treadmill is on and nearby.");
     return;
   }
 
@@ -196,21 +197,35 @@ function renderDevices(devices) {
     button.innerHTML = `<strong></strong><span></span>`;
     button.querySelector("strong").textContent = deviceName(device);
     button.querySelector("span").textContent = [device.address, device.rssi == null ? null : `${device.rssi} dBm`].filter(Boolean).join(" · ");
-    button.addEventListener("click", action(() => post("/api/connect", { address: device.address })));
+    button.addEventListener("click", action(async () => {
+      await post("/api/connect", { address: device.address });
+      els.devicePanel.hidden = true;
+    }));
     els.deviceList.appendChild(button);
   }
 }
 
 async function scanDevices() {
-  message("Searching...");
   els.scanButton.disabled = true;
+  els.devicePanel.hidden = false;
+  els.notificationPanel.hidden = true;
+  els.notificationButton.setAttribute("aria-expanded", "false");
+  els.deviceList.replaceChildren();
+  const pending = document.createElement("div");
+  pending.className = "device-empty";
+  pending.textContent = "Searching...";
+  els.deviceList.appendChild(pending);
   try {
     const response = await fetch("/api/devices/scan?timeout_s=5");
     const devices = await response.json();
     if (!response.ok) throw new Error(devices.detail || response.statusText);
     renderDevices(devices.filter((device) => device.address));
-    message();
   } catch (error) {
+    els.deviceList.replaceChildren();
+    const failed = document.createElement("div");
+    failed.className = "device-empty";
+    failed.textContent = "Could not search right now.";
+    els.deviceList.appendChild(failed);
     report(error);
   } finally {
     els.scanButton.disabled = false;
@@ -222,7 +237,11 @@ els.connectionButton.addEventListener("click", action(() => post("/api/disconnec
 els.notificationButton.addEventListener("click", () => {
   const nextHidden = !els.notificationPanel.hidden;
   els.notificationPanel.hidden = nextHidden;
+  els.devicePanel.hidden = true;
   els.notificationButton.setAttribute("aria-expanded", String(!nextHidden));
+});
+els.closeDevicePanelButton.addEventListener("click", () => {
+  els.devicePanel.hidden = true;
 });
 els.clearNotificationsButton.addEventListener("click", () => {
   notifications.splice(0, notifications.length);

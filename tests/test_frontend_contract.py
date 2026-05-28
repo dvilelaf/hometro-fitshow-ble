@@ -108,7 +108,19 @@ def test_frontend_scans_and_connects_to_selected_device() -> None:
     assert '"/api/connect"' in source
     assert "device.address" in source
     assert 'id="scanButton"' in html
+    assert 'id="devicePanel"' in html
     assert 'id="deviceList"' in html
+    assert 'id="closeDevicePanelButton"' in html
+
+
+def test_frontend_search_uses_device_panel_not_global_message() -> None:
+    source = app_source()
+    scan_index = source.index("async function scanDevices")
+    scan_block = source[scan_index : source.index("\nels.scanButton", scan_index)]
+
+    assert "els.devicePanel.hidden = false" in scan_block
+    assert "message(\"Searching" not in scan_block
+    assert "No treadmill found" in source
 
 
 def test_frontend_hides_raw_network_errors_from_user() -> None:

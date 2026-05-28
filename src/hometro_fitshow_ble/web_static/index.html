@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>HomeTro BLE Control</title>
-    <link rel="stylesheet" href="/static/styles.css?v=notifications-20260528b" />
+    <link rel="stylesheet" href="/static/styles.css?v=search-picker-20260528" />
   </head>
   <body>
     <main class="shell">
@@ -36,12 +36,15 @@
             </div>
             <div id="notificationList" class="notification-list"></div>
           </div>
+          <div id="devicePanel" class="device-panel" hidden>
+            <div class="device-panel-header">
+              <strong>Treadmills nearby</strong>
+              <button id="closeDevicePanelButton" type="button">Close</button>
+            </div>
+            <div id="deviceList" class="device-list"></div>
+          </div>
         </div>
       </header>
-
-      <section id="devicePanel" class="device-panel" hidden>
-        <div id="deviceList" class="device-list"></div>
-      </section>
 
       <section class="dashboard">
         <div class="primary-metric">
@@ -95,6 +98,6 @@
       </section>
     </main>
     <div id="notificationToast" class="notification-toast" hidden></div>
-    <script src="/static/app.js?v=notifications-20260528b"></script>
+    <script src="/static/app.js?v=search-picker-20260528"></script>
   </body>
 </html>

@@ -49,7 +49,7 @@ def create_app(address: str = "", *, timeout: float = 15.0) -> FastAPI:
     @app.get("/api/devices/scan")
     async def scan(timeout_s: float = 5.0, contains: str | None = None) -> list[dict]:
         rows = await scan_devices(timeout=timeout_s, contains=contains)
-        return [row.to_json() for row in rows]
+        return [row.to_json() for row in rows if row.is_known_treadmill()]
 
     @app.post("/api/connect")
     async def connect(request: ConnectRequest) -> dict:
