@@ -77,37 +77,12 @@ input {
 }
 
 .notification-icon {
-  border: 2px solid currentColor;
-  border-bottom: 0;
-  border-radius: 10px 10px 4px 4px;
+  background: currentColor;
   display: block;
-  height: 15px;
-  position: relative;
-  width: 14px;
-}
-
-.notification-icon::before {
-  background: currentColor;
-  border-radius: 999px;
-  content: "";
-  height: 4px;
-  left: 50%;
-  position: absolute;
-  top: -6px;
-  transform: translateX(-50%);
-  width: 6px;
-}
-
-.notification-icon::after {
-  background: currentColor;
-  border-radius: 999px;
-  bottom: -5px;
-  content: "";
-  height: 3px;
-  left: 50%;
-  position: absolute;
-  transform: translateX(-50%);
-  width: 8px;
+  height: 20px;
+  mask: url("/static/icons/bell.svg") center / contain no-repeat;
+  width: 20px;
+  -webkit-mask: url("/static/icons/bell.svg") center / contain no-repeat;
 }
 
 .notification-badge {

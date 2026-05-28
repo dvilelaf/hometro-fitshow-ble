@@ -3,6 +3,7 @@ from pathlib import Path
 
 APP_JS = Path("src/hometro_fitshow_ble/web_static/app.js")
 INDEX_HTML = Path("src/hometro_fitshow_ble/web_static/index.html")
+STYLES_CSS = Path("src/hometro_fitshow_ble/web_static/styles.css")
 
 
 def app_source() -> str:
@@ -11,6 +12,10 @@ def app_source() -> str:
 
 def index_source() -> str:
     return INDEX_HTML.read_text(encoding="utf-8")
+
+
+def styles_source() -> str:
+    return STYLES_CSS.read_text(encoding="utf-8")
 
 
 def find_matching_brace(source: str, open_brace: int) -> int:
@@ -159,6 +164,15 @@ def test_frontend_has_notification_center() -> None:
     assert "function notify(" in source
     assert "renderNotifications()" in source
     assert "userMessage(" in source
+
+
+def test_notification_button_uses_local_icon_asset() -> None:
+    styles = styles_source()
+    icon_block = styles[styles.index(".notification-icon") : styles.index(".notification-badge")]
+
+    assert "icons/bell.svg" in styles
+    assert "::before" not in icon_block
+    assert Path("src/hometro_fitshow_ble/web_static/icons/bell.svg").exists()
 
 
 def test_eventsource_errors_are_user_notifications() -> None:
