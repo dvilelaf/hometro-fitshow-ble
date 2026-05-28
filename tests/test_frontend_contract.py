@@ -97,7 +97,18 @@ def test_frontend_delegates_connection_and_pause_state_to_backend() -> None:
     assert "let state" not in source
     assert "pendingSpeedFlush" not in source
     assert "state?.connected" not in source
-    assert '"/api/connection-toggle"' in source
+    assert '"/api/disconnect"' in source
+
+
+def test_frontend_scans_and_connects_to_selected_device() -> None:
+    source = app_source()
+    html = index_source()
+
+    assert "/api/devices/scan" in source
+    assert '"/api/connect"' in source
+    assert "device.address" in source
+    assert 'id="scanButton"' in html
+    assert 'id="deviceList"' in html
 
 
 def test_frontend_has_one_primary_control_button_and_stop() -> None:

@@ -1,4 +1,4 @@
-const els = Object.fromEntries("speed target distanceKm calories elapsed connectionButton connectionMessage startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
+const els = Object.fromEntries("speed target distanceKm calories elapsed scanButton connectionButton connectionMessage devicePanel deviceList startButton stopButton speedInput speedTicks".split(" ").map((id) => [id, document.querySelector(`#${id}`)]));
 
 let speedDebounce = null;
 const clampSpeed = (value) => Math.min(14, Math.max(1, Number(value || 1)));
@@ -35,11 +35,11 @@ function render(state) {
   showSpeed(target);
 
   els.connectionButton.disabled = busy;
-  els.connectionButton.textContent = busy ? connected ? "Disconnecting..." : "Connecting..." : connected ? "Disconnect" : "Connect";
-  els.connectionButton.classList.toggle("primary", !connected);
-  els.connectionButton.classList.toggle("danger", connected);
+  els.connectionButton.textContent = busy ? connected ? "Disconnecting..." : "Connecting..." : "Disconnect";
+  els.connectionButton.hidden = !connected && !busy;
+  els.connectionButton.classList.toggle("danger", connected || busy);
   if (state.connection_state === "error" && state.last_error) message(state.last_error, true);
-  else if (connected) message();
+  else if (connected) message(`Connected to ${state.address}`);
 }
 
 async function post(path, body) {
@@ -81,7 +81,53 @@ function action(fn, flush = false) {
     }
   };
 }
-els.connectionButton.addEventListener("click", action(() => post("/api/connection-toggle")));
+
+function deviceName(device) {
+  return device.local_name || device.name || device.address || "Unknown device";
+}
+
+function renderDevices(devices) {
+  els.deviceList.replaceChildren();
+  els.devicePanel.hidden = false;
+
+  if (!devices.length) {
+    const empty = document.createElement("div");
+    empty.className = "device-empty";
+    empty.textContent = "No devices found";
+    els.deviceList.appendChild(empty);
+    return;
+  }
+
+  for (const device of devices) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "device-button";
+    button.innerHTML = `<strong></strong><span></span>`;
+    button.querySelector("strong").textContent = deviceName(device);
+    button.querySelector("span").textContent = [device.address, device.rssi == null ? null : `${device.rssi} dBm`].filter(Boolean).join(" · ");
+    button.addEventListener("click", action(() => post("/api/connect", { address: device.address })));
+    els.deviceList.appendChild(button);
+  }
+}
+
+async function scanDevices() {
+  message("Searching...");
+  els.scanButton.disabled = true;
+  try {
+    const response = await fetch("/api/devices/scan?timeout_s=5");
+    const devices = await response.json();
+    if (!response.ok) throw new Error(devices.detail || response.statusText);
+    renderDevices(devices.filter((device) => device.address));
+    message();
+  } catch (error) {
+    report(error);
+  } finally {
+    els.scanButton.disabled = false;
+  }
+}
+
+els.scanButton.addEventListener("click", scanDevices);
+els.connectionButton.addEventListener("click", action(() => post("/api/disconnect")));
 els.startButton.addEventListener("click", action(() => post("/api/control/primary"), true));
 els.stopButton.addEventListener("click", action(() => post("/api/control/stop")));
 els.speedInput.addEventListener("input", () => {

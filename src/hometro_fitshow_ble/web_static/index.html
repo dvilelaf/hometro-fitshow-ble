@@ -14,10 +14,17 @@
           <h1>Treadmill Control</h1>
         </div>
         <div class="connection-box">
-          <button id="connectionButton" type="button">Connect</button>
+          <div class="connection-actions">
+            <button id="scanButton" type="button">Search</button>
+            <button id="connectionButton" type="button">Disconnect</button>
+          </div>
           <p id="connectionMessage" class="connection-message" aria-live="polite"></p>
         </div>
       </header>
+
+      <section id="devicePanel" class="device-panel" hidden>
+        <div id="deviceList" class="device-list"></div>
+      </section>
 
       <section class="dashboard">
         <div class="primary-metric">
@@ -70,6 +77,6 @@
         </div>
       </section>
     </main>
-    <script src="/static/app.js?v=backend-state-20260527"></script>
+    <script src="/static/app.js?v=device-scan-20260528"></script>
   </body>
 </html>

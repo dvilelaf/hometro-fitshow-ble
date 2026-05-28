@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .ble_ops import scan_devices
 from .controller import TreadmillController
 
 STATIC_DIR = Path(__file__).with_name("web_static")
@@ -21,7 +22,11 @@ class SpeedRequest(BaseModel):
     speed_kmh: Annotated[float, Field(ge=0, le=30)]
 
 
-def create_app(address: str, *, timeout: float = 15.0) -> FastAPI:
+class ConnectRequest(BaseModel):
+    address: str
+
+
+def create_app(address: str = "", *, timeout: float = 15.0) -> FastAPI:
     controller = TreadmillController(address, timeout=timeout)
     app = FastAPI(title="HomeTro FitShow BLE")
 
@@ -41,7 +46,15 @@ def create_app(address: str, *, timeout: float = 15.0) -> FastAPI:
     async def state() -> dict:
         return controller.state.snapshot()
 
-    post("/api/connect", controller.connect)
+    @app.get("/api/devices/scan")
+    async def scan(timeout_s: float = 5.0, contains: str | None = None) -> list[dict]:
+        rows = await scan_devices(timeout=timeout_s, contains=contains)
+        return [row.to_json() for row in rows]
+
+    @app.post("/api/connect")
+    async def connect(request: ConnectRequest) -> dict:
+        return await _call(lambda: controller.connect_to(request.address))
+
     post("/api/disconnect", lambda: controller.disconnect(stop_first=True))
     post("/api/connection-toggle", controller.connection_toggle)
     post("/api/control/play", controller.play)
@@ -84,6 +97,6 @@ async def _event_stream(controller: TreadmillController) -> AsyncIterator[str]:
         controller.unsubscribe(queue)
 
 
-def run_server(address: str, *, host: str, port: int, timeout: float = 15.0) -> None:
+def run_server(address: str = "", *, host: str, port: int, timeout: float = 15.0) -> None:
     app = create_app(address, timeout=timeout)
     uvicorn.run(app, host=host, port=port)

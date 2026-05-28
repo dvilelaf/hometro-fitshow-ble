@@ -32,7 +32,7 @@ TARGET_RESTORE_INTERVAL_SECONDS = 0.75
 
 
 class TreadmillController:
-    def __init__(self, address: str, *, timeout: float = 15.0) -> None:
+    def __init__(self, address: str = "", *, timeout: float = 15.0) -> None:
         self.address = address
         self.timeout = timeout
         self.state = TreadmillState(address=address)
@@ -48,6 +48,14 @@ class TreadmillController:
 
     async def connect(self) -> dict[str, Any]:
         async with self._lock:
+            if not self.address:
+                message = "select a treadmill first"
+                self.state.set_connection(ConnectionState.ERROR)
+                self.state.last_error = message
+                self.state.last_event_ts = utc_now()
+                await self._publish()
+                raise RuntimeError(message)
+
             if self.connected:
                 return self.state.snapshot()
 
@@ -81,6 +89,21 @@ class TreadmillController:
 
             await self._publish()
             return self.state.snapshot()
+
+    async def connect_to(self, address: str) -> dict[str, Any]:
+        address = address.strip()
+        if not address:
+            raise ValueError("device address is required")
+
+        if self.address != address:
+            if self.connected:
+                await self.disconnect(stop_first=True)
+            async with self._lock:
+                self.address = address
+                self.state = TreadmillState(address=address)
+                await self._publish()
+
+        return await self.connect()
 
     async def disconnect(self, *, stop_first: bool = True) -> dict[str, Any]:
         async with self._operation_lock, self._lock:

@@ -55,6 +55,12 @@ input {
   min-width: min(280px, 45vw);
 }
 
+.connection-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .connection-message {
   color: var(--muted);
   font-size: 12px;
@@ -87,6 +93,41 @@ h1 {
   font-size: 20px;
   line-height: 1.1;
   margin: 4px 0 0;
+}
+
+.device-panel {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+}
+
+.device-list {
+  display: grid;
+  gap: 8px;
+}
+
+.device-button {
+  align-items: center;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  min-height: 58px;
+  text-align: left;
+}
+
+.device-button strong {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.device-button span,
+.device-empty {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .dashboard {
@@ -343,6 +384,14 @@ button:disabled {
   .connection-box {
     justify-items: stretch;
     min-width: 0;
+  }
+
+  .connection-actions {
+    justify-content: stretch;
+  }
+
+  .connection-actions button {
+    flex: 1;
   }
 
   .connection-message {

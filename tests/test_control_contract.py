@@ -110,6 +110,47 @@ def test_backend_exposes_primary_action_labels() -> None:
     assert controller.state.snapshot()["primary_action_label"] == "Resume"
 
 
+def test_connect_requires_selected_device(monkeypatch: pytest.MonkeyPatch) -> None:
+    setup_contract_bleak(monkeypatch)
+    controller = TreadmillController()
+
+    with pytest.raises(RuntimeError, match="select a treadmill first"):
+        asyncio.run(controller.connect())
+
+
+def test_connect_to_selected_device_updates_backend_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setup_contract_bleak(monkeypatch)
+    controller = TreadmillController()
+
+    state = asyncio.run(controller.connect_to("66:99:D4:F6:7B:30"))
+
+    assert state["address"] == "66:99:D4:F6:7B:30"
+    assert state["connected"] is True
+    assert ContractFakeBleakClient.instances[-1].address == "66:99:D4:F6:7B:30"
+
+
+def test_connect_to_another_device_disconnects_previous_device(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setup_contract_bleak(monkeypatch)
+    controller = TreadmillController()
+
+    async def exercise() -> dict:
+        await controller.connect_to("66:99:D4:F6:7B:30")
+        first_client = ContractFakeBleakClient.instances[-1]
+        state = await controller.connect_to("AA:BB:CC:DD:EE:FF")
+        assert first_client.is_connected is False
+        return state
+
+    state = asyncio.run(exercise())
+
+    assert state["address"] == "AA:BB:CC:DD:EE:FF"
+    assert state["connected"] is True
+    assert ContractFakeBleakClient.instances[-1].address == "AA:BB:CC:DD:EE:FF"
+
+
 def test_set_speed_while_idle_updates_target_without_ble_speed_write(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -6,6 +6,8 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .DS_Store
+.hometro-server.log
+.hometro-server.pid
 
 # Local captures can contain device identifiers and workout data.
 captures/*.json

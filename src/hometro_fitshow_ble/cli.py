@@ -216,6 +216,21 @@ def add_common_connect_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_optional_connect_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "address",
+        nargs="?",
+        default="",
+        help="Optional BLE address. The web UI can scan and choose a device.",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=15.0,
+        help="Connection timeout in seconds.",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="hometro-ble",
@@ -312,7 +327,7 @@ def build_parser() -> argparse.ArgumentParser:
     session_parser.set_defaults(func=session)
 
     web_parser = subparsers.add_parser("web", help="Run the local web control server.")
-    add_common_connect_args(web_parser)
+    add_optional_connect_args(web_parser)
     web_parser.add_argument("--host", default="127.0.0.1", help="HTTP host. Default: 127.0.0.1.")
     web_parser.add_argument("--port", type=int, default=8000, help="HTTP port. Default: 8000.")
     web_parser.set_defaults(sync_func=web)
