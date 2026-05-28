@@ -157,6 +157,7 @@ def test_frontend_renders_speed_chart_from_backend_history() -> None:
     assert "speedChartTitle" not in html
     assert "km/h over time" not in html
     assert "function drawSpeedChart(" in source
+    assert 'padStart(2, "0")' in source
     assert "function drawSmoothPath(" in source
     assert "function timeStep(" in source
     assert "const maxTime = rawMaxTime" in source

@@ -97,9 +97,7 @@ function showSpeed(value) {
 
 function chartTime(seconds) {
   const value = Math.max(0, Math.round(Number(seconds || 0)));
-  if (value < 60) return `${value}s`;
-  if (value % 60 === 0) return `${value / 60}m`;
-  return `${Math.floor(value / 60)}m ${String(value % 60).padStart(2, "0")}s`;
+  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
 }
 
 function timeStep(maxTime) {
