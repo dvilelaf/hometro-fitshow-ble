@@ -41,8 +41,9 @@ function report(error) {
 }
 
 function renderNotifications() {
-  els.notificationBadge.hidden = notifications.length === 0;
-  els.notificationBadge.textContent = String(notifications.length);
+  const count = notifications.length;
+  els.notificationBadge.hidden = count === 0;
+  els.notificationBadge.textContent = count === 0 ? "" : String(count);
   els.notificationList.replaceChildren();
 
   if (!notifications.length) {
